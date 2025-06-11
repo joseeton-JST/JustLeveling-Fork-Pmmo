@@ -33,7 +33,15 @@ public abstract class MixTargetFinder {
             attackRange *= (double) PehkuiHelper.getScale(player);
         }
 
-        attackRange += ((AttributeModifier) Objects.requireNonNull(((AttributeInstance)Objects.requireNonNull(player.getAttribute( ForgeMod.ATTACK_RANGE.get()))).getModifier(UUID.fromString("96a891fe-5919-418d-8205-f50464391509")))).getAmount();
+        AttributeInstance playerReach = player.getAttribute(ForgeMod.ENTITY_REACH.get());
+        if (playerReach == null) {
+            return;
+        }
+        AttributeModifier modifier = playerReach.getModifier(UUID.fromString("96a891fe-5919-418d-8205-f50464391509"));
+        if (modifier == null){
+            return;
+        }
+        attackRange += modifier.getAmount();
         boolean isSpinAttack = attack.angle() > 180.0D;
         Vec3 size = WeaponHitBoxes.createHitbox(attack.hitbox(), attackRange, isSpinAttack);
         OrientedBoundingBox obb = new OrientedBoundingBox(origin, size, player.getXRot(), player.getYRot());
