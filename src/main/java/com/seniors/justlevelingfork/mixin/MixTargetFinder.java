@@ -33,7 +33,7 @@ public abstract class MixTargetFinder {
             attackRange *= (double) PehkuiHelper.getScale(player);
         }
 
-        AttributeInstance playerReach = player.getAttribute(ForgeMod.ENTITY_REACH.get());
+        AttributeInstance playerReach = player.getAttribute(ForgeMod.ATTACK_RANGE.get());
         if (playerReach == null) {
             return;
         }
