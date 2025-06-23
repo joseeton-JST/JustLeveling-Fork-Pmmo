@@ -63,7 +63,7 @@ public class JustLevelingScreen extends Screen {
         super(new TranslatableComponent("screen.aptitude.title"));
     }
 
-
+    @Override
     protected void init() {
         int x = (this.width - 176) / 2;
         int y = (this.height - 166) / 2;
@@ -80,61 +80,63 @@ public class JustLevelingScreen extends Screen {
         super.init();
     }
 
-
+    @Override
     public void render(@NotNull PoseStack matrixStack, int mouseX, int mouseY, float delta) {
         this.isMouseCheck = false;
         int x = (this.width - 176) / 2;
         int y = (this.height - 166) / 2;
 
-        drawBackground(matrixStack, x, y, mouseX, mouseY, delta);
+        this.drawBackground(matrixStack, x, y, mouseX, mouseY, delta);
 
         super.render(matrixStack, mouseX, mouseY, delta);
     }
 
     public void drawBackground(PoseStack matrixStack, int x, int y, int mouseX, int mouseY, float delta) {
-        renderBackground(matrixStack);
-        assert client.player != null;
-        int progress = (int) (client.player.experienceProgress * 151.0F);
-        //matrixStack.pushPose();
-        if (this.selectedPage == 0) {
-            RenderSystem.enableBlend();
-            RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[0]);
-            this.blit(matrixStack, x, y, 0, 0, 176, 166);
-            this.blit(matrixStack, x + 12, y + 43, 0, 166, progress, 5);
-        }
-        if (this.selectedPage == 1) {
-            RenderSystem.enableBlend();
-            if (RegistryAptitudes.getAptitude(this.selectedAptitude).background != null) {
-                RenderSystem.setShaderTexture(0, RegistryAptitudes.getAptitude(this.selectedAptitude).background);
-                blit(matrixStack, x + 7, y + 30, 0.0F, 0.0F, 160, 128, 16, 16);
+        try(TooltipContext context = new TooltipContext(this, matrixStack, mouseX, mouseY)) {
+            this.renderBackground(matrixStack);
+            assert client.player != null;
+            int progress = (int) (client.player.experienceProgress * 151.0F);
+            //matrixStack.pushPose();
+            if (this.selectedPage == 0) {
+                RenderSystem.enableBlend();
+                RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[0]);
+                this.blit(matrixStack, x, y, 0, 0, 176, 166);
+                this.blit(matrixStack, x + 12, y + 43, 0, 166, progress, 5);
+            }
+            if (this.selectedPage == 1) {
+                RenderSystem.enableBlend();
+                if (RegistryAptitudes.getAptitude(this.selectedAptitude).background != null) {
+                    RenderSystem.setShaderTexture(0, RegistryAptitudes.getAptitude(this.selectedAptitude).background);
+                    blit(matrixStack, x + 7, y + 30, 0.0F, 0.0F, 160, 128, 16, 16);
+                }
+
+                RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[1]);
+                this.blit(matrixStack, x, y, 0, 0, 176, 166);
+            }
+            if (this.selectedPage == 2) {
+                RenderSystem.enableBlend();
+                RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[2]);
+                this.blit(matrixStack, x, y, 0, 0, 176, 166);
             }
 
-            RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[1]);
-            this.blit(matrixStack, x, y, 0, 0, 176, 166);
-        }
-        if (this.selectedPage == 2) {
-            RenderSystem.enableBlend();
-            RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[2]);
-            this.blit(matrixStack, x, y, 0, 0, 176, 166);
-        }
+            DrawTabs.render(this, matrixStack, mouseX, mouseY, 176, 166, 0);
+            if (this.selectedPage == 0) {
+                this.drawAptitudes(matrixStack, x, y, mouseX, mouseY, context);
+            }
 
-        DrawTabs.render(this, matrixStack, mouseX, mouseY, 176, 166, 0);
-        if (this.selectedPage == 0) {
-            this.drawAptitudes(matrixStack, x, y, mouseX, mouseY);
-        }
+            if (this.selectedPage == 1) {
+                this.drawSkills(matrixStack, x, y, mouseX, mouseY, context);
+            }
 
-        if (this.selectedPage == 1) {
-            this.drawSkills(matrixStack, x, y, mouseX, mouseY);
-        }
+            if (this.selectedPage == 2) {
+                this.drawTitles(matrixStack, x, y, mouseX, mouseY, delta, context);
+            }
 
-        if (this.selectedPage == 2) {
-            this.drawTitles(matrixStack, x, y, mouseX, mouseY, delta);
+            //matrixStack.popPose();
         }
-
-        //matrixStack.popPose();
     }
 
-    public void drawTitles(PoseStack matrixStack, int x, int y, int mouseX, int mouseY, float delta) {
+    public void drawTitles(PoseStack matrixStack, int x, int y, int mouseX, int mouseY, float delta, TooltipContext context) {
         Utils.drawCenter(matrixStack, new TranslatableComponent("screen.title.choose_your_title"), x + 88, y + 7);
 
         this.searchTitle.setVisible(true);
@@ -224,10 +226,10 @@ public class JustLevelingScreen extends Screen {
             this.blit(matrixStack, x + 16, y + 144, 30, 179, 11, 11);
             List<Component> tooltipList = new ArrayList<>();
             tooltipList.add(new TranslatableComponent("tooltip.sort.button.mod_names").withStyle(ChatFormatting.DARK_AQUA));
-            tooltipList.add(new TranslatableComponent("tooltip.sort.button.true").withStyle((Boolean) HandlerConfigClient.showTitleModName.get() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
-            tooltipList.add(new TranslatableComponent("tooltip.sort.button.false").withStyle(!(Boolean) HandlerConfigClient.showTitleModName.get() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+            tooltipList.add(new TranslatableComponent("tooltip.sort.button.true").withStyle(HandlerConfigClient.showTitleModName.get() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+            tooltipList.add(new TranslatableComponent("tooltip.sort.button.false").withStyle(!HandlerConfigClient.showTitleModName.get() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
             assert client.screen != null;
-            Utils.drawToolTipList(this, matrixStack, tooltipList, mouseX, mouseY);
+            context.enqueueComponents(tooltipList);
             this.isMouseCheck = true;
             if (this.checkMouse) {
                 HandlerConfigClient.showTitleModName.set(!(Boolean) HandlerConfigClient.showTitleModName.get());
@@ -243,7 +245,7 @@ public class JustLevelingScreen extends Screen {
         if (Utils.checkMouse(backIconX, backIconY, mouseX, mouseY, 18, 10) && !this.scrollingDropDown) {
             RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
             this.blit(matrixStack, backIconX, backIconY, 222, 0, 18, 10);
-            Utils.drawToolTip(this, matrixStack, new TranslatableComponent("tooltip.title.back"), mouseX, mouseY);
+            context.enqueueComponent(new TranslatableComponent("tooltip.title.back"));
             this.isMouseCheck = true;
             if (this.checkMouse) {
                 this.skillActualPage = 0;
@@ -256,7 +258,7 @@ public class JustLevelingScreen extends Screen {
         matrixStack.popPose();
     }
 
-    public void drawAptitudes(PoseStack matrixStack, int x, int y, int mouseX, int mouseY) {
+    public void drawAptitudes(PoseStack matrixStack, int x, int y, int mouseX, int mouseY, TooltipContext context) {
         assert client.player != null;
 
         Utils.drawCenter(matrixStack, client.player.getName(), x + 88, y + 7);
@@ -276,7 +278,7 @@ public class JustLevelingScreen extends Screen {
         this.blit(matrixStack, x + 88 + titleWidth / 2 - 10, y + 30, 8, 218, 8, 8);
 
         if (checkButton) {
-            Utils.drawToolTip(this, matrixStack, new TextComponent("Edit Title"), mouseX, mouseY);
+            context.enqueueComponent(new TextComponent("Edit Title"));
             this.isMouseCheck = true;
             if (this.checkMouse) {
                 this.selectedPage = 2;
@@ -302,14 +304,14 @@ public class JustLevelingScreen extends Screen {
 
 
             RenderSystem.setShaderTexture(0, aptitude.getLockedTexture());
-            this.blit(matrixStack, xPos + 5, yPos + 5, 0.0F, 0.0F, 16, 16, 16, 16);
+            blit(matrixStack, xPos + 5, yPos + 5, 0.0F, 0.0F, 16, 16, 16, 16);
 
             client.font.draw(matrixStack, new TranslatableComponent(key + ".abbreviation").withStyle(ChatFormatting.BOLD), xPos + 24, yPos + 5, (new Color(240, 240, 240)).getRGB());
 
             client.font.draw(matrixStack, new TranslatableComponent("screen.aptitude.experience", Utils.numberFormat(aptitudeLevel), HandlerCommonConfig.HANDLER.instance().aptitudeMaxLevel), xPos + 24, yPos + 14, (new Color(170, 170, 170)).getRGB());
 
             if (Utils.checkMouse(xPos, yPos, mouseX, mouseY, 74, 26)) {
-                Utils.drawToolTip(this, matrixStack, new TranslatableComponent(key), mouseX, mouseY);
+                context.enqueueComponent(new TranslatableComponent(key));
                 this.isMouseCheck = true;
                 if (this.checkMouse) {
                     this.tick = this.maxTick / 2;
@@ -323,7 +325,7 @@ public class JustLevelingScreen extends Screen {
         }
     }
 
-    public void drawSkills(PoseStack matrixStack, int x, int y, int mouseX, int mouseY) {
+    public void drawSkills(PoseStack matrixStack, int x, int y, int mouseX, int mouseY, TooltipContext context) {
         assert client.player != null;
         assert client.screen != null;
         AptitudeCapability capability = AptitudeCapability.get();
@@ -334,21 +336,21 @@ public class JustLevelingScreen extends Screen {
         String rank = aptitude.getRank(aptitudeLevel).getString();
 
         RenderSystem.setShaderTexture(0, aptitude.getLockedTexture());
-        this.blit(matrixStack, x + 12, y + 9, 0.0F, 0.0F, 16, 16, 16, 16);
+        blit(matrixStack, x + 12, y + 9, 0.0F, 0.0F, 16, 16, 16, 16);
 
         client.font.draw(matrixStack, new TranslatableComponent(key).withStyle(ChatFormatting.BOLD), x + 34, y + 8, Utils.FONT_COLOR);
         client.font.draw(matrixStack, new TranslatableComponent("screen.skill.level_and_rank", Utils.numberFormat(aptitudeLevel), HandlerCommonConfig.HANDLER.instance().aptitudeMaxLevel, rank), x + 34, y + 18, Utils.FONT_COLOR);
 
         RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-        blit(matrixStack, x + 16, y + 144, 30, 167, 11, 11);
+        this.blit(matrixStack, x + 16, y + 144, 30, 167, 11, 11);
         if (Utils.checkMouse(x + 16, y + 144, mouseX, mouseY, 11, 11)) {
             RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-            blit(matrixStack, x + 16, y + 144, 30, 179, 11, 11);
+            this.blit(matrixStack, x + 16, y + 144, 30, 179, 11, 11);
             List<Component> tooltipList = new ArrayList<>();
             tooltipList.add(new TranslatableComponent("tooltip.sort.button.mod_names").withStyle(ChatFormatting.DARK_AQUA));
             tooltipList.add(new TranslatableComponent("tooltip.sort.button.true").withStyle(HandlerConfigClient.showSkillModName.get() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
             tooltipList.add(new TranslatableComponent("tooltip.sort.button.false").withStyle(!HandlerConfigClient.showSkillModName.get() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
-            Utils.drawToolTipList(this, matrixStack, tooltipList, mouseX, mouseY);
+            context.enqueueComponents(tooltipList);
             this.isMouseCheck = true;
             if (this.checkMouse) {
                 HandlerConfigClient.showSkillModName.set(!HandlerConfigClient.showSkillModName.get());
@@ -358,7 +360,7 @@ public class JustLevelingScreen extends Screen {
         }
 
         RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-        blit(matrixStack, x + 28, y + 144, 42, 167, 11, 11);
+        this.blit(matrixStack, x + 28, y + 144, 42, 167, 11, 11);
         if (Utils.checkMouse(x + 28, y + 144, mouseX, mouseY, 11, 11)) {
             List<Component> tooltipList = new ArrayList<>();
             tooltipList.add(new TranslatableComponent("tooltip.sort.button.passives").withStyle(ChatFormatting.DARK_AQUA));
@@ -366,7 +368,7 @@ public class JustLevelingScreen extends Screen {
                 ChatFormatting color = (SortPassives.values()[m] == HandlerConfigClient.sortPassive.get()) ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY;
                 tooltipList.add(new TranslatableComponent((SortPassives.values()[m]).order).withStyle(color));
             }
-            Utils.drawToolTipList(this, matrixStack, tooltipList, mouseX, mouseY);
+            context.enqueueComponents(tooltipList);
             this.isMouseCheck = true;
             if (this.checkMouse) {
                 HandlerConfigClient.sortPassive.set(SortPassives.fromIndex(HandlerConfigClient.sortPassive.get().index + 1));
@@ -386,7 +388,7 @@ public class JustLevelingScreen extends Screen {
                 ChatFormatting color = (SortSkills.values()[m] == HandlerConfigClient.sortSkill.get()) ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY;
                 tooltipList.add(new TranslatableComponent((SortSkills.values()[m]).order).withStyle(color));
             }
-            Utils.drawToolTipList(this, matrixStack, tooltipList, mouseX, mouseY);
+            context.enqueueComponents(tooltipList);
             this.isMouseCheck = true;
             if (this.checkMouse) {
                 HandlerConfigClient.sortSkill.set(SortSkills.fromIndex(HandlerConfigClient.sortSkill.get().index + 1));
@@ -456,7 +458,7 @@ public class JustLevelingScreen extends Screen {
         newPage.forEach(list -> {
             in.addAndGet(1);
 
-            createList(list, capability, matrixStack, x, y + in.get() * 26 - newPage.size() * 13, mouseX, mouseY);
+            this.createList(list, capability, matrixStack, x, y + in.get() * 26 - newPage.size() * 13, mouseX, mouseY, context);
         });
         if (this.tick >= this.maxTick) {
             this.b = !this.b;
@@ -471,16 +473,18 @@ public class JustLevelingScreen extends Screen {
                 || AptitudeLevelUpSP.requiredPoints(aptitudeLevel) <= client.player.totalExperience);
         if (Utils.checkMouse(x + 149, y + 10, mouseX, mouseY, 14, 14)) {
             if (AptitudeCapability.get(client.player).getGlobalLevel() >= HandlerCommonConfig.HANDLER.instance().playersMaxGlobalLevel) {
-                Utils.drawToolTip(this, matrixStack,
-                        new TranslatableComponent("tooltip.aptitude.global_max_level", HandlerCommonConfig.HANDLER.instance().playersMaxGlobalLevel)
-                                .withStyle(ChatFormatting.RED),
-                        mouseX,
-                        mouseY);
+                context.enqueueComponent(new TranslatableComponent(
+                        "tooltip.aptitude.global_max_level",
+                        HandlerCommonConfig.HANDLER.instance().playersMaxGlobalLevel
+                ).withStyle(ChatFormatting.RED));
             } else if (aptitudeLevel < HandlerCommonConfig.HANDLER.instance().aptitudeMaxLevel) {
                 ChatFormatting color = canLevelUpAptitude ? ChatFormatting.GREEN : ChatFormatting.RED;
-                Utils.drawToolTip(this, matrixStack, new TranslatableComponent("tooltip.aptitude.level_up", new TextComponent(String.valueOf(AptitudeLevelUpSP.requiredLevels(aptitudeLevel))).withStyle(color),
+                context.enqueueComponent(new TranslatableComponent(
+                        "tooltip.aptitude.level_up",
+                        new TextComponent(String.valueOf(AptitudeLevelUpSP.requiredLevels(aptitudeLevel))).withStyle(color),
                         new TextComponent(String.valueOf(AptitudeLevelUpSP.requiredPoints(aptitudeLevel))).withStyle(color),
-                        new TranslatableComponent(aptitude.getKey()).withStyle(color)).withStyle(ChatFormatting.GRAY), mouseX, mouseY);
+                        new TranslatableComponent(aptitude.getKey()).withStyle(color)
+                ).withStyle(ChatFormatting.GRAY));
                 this.tick = this.maxTick - 5;
                 if (canLevelUpAptitude) {
                     this.b = true;
@@ -494,7 +498,10 @@ public class JustLevelingScreen extends Screen {
                     this.b = false;
                 }
             } else {
-                Utils.drawToolTip(this, matrixStack, new TranslatableComponent("tooltip.aptitude.max_level", new TranslatableComponent(aptitude.getKey()).withStyle(ChatFormatting.GREEN)).withStyle(ChatFormatting.GRAY), mouseX, mouseY);
+                context.enqueueComponent(new TranslatableComponent(
+                        "tooltip.aptitude.max_level",
+                        new TranslatableComponent(aptitude.getKey()).withStyle(ChatFormatting.GREEN)
+                ).withStyle(ChatFormatting.GRAY));
             }
 
         } else if (canLevelUpAptitude) {
@@ -503,16 +510,15 @@ public class JustLevelingScreen extends Screen {
             this.b = false;
         }
 
-
         int backIconX = x + 141;
         int backIconY = y + 144;
 
         RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-        blit(matrixStack, backIconX, backIconY, 204, 0, 18, 10);
+        this.blit(matrixStack, backIconX, backIconY, 204, 0, 18, 10);
         if (Utils.checkMouse(backIconX, backIconY, mouseX, mouseY, 18, 10)) {
             RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-            blit(matrixStack, backIconX, backIconY, 222, 0, 18, 10);
-            Utils.drawToolTip(this, matrixStack, new TranslatableComponent("tooltip.skill.back"), mouseX, mouseY);
+            this.blit(matrixStack, backIconX, backIconY, 222, 0, 18, 10);
+            context.enqueueComponent(new TranslatableComponent("tooltip.skill.back"));
             this.isMouseCheck = true;
             if (this.checkMouse) {
                 this.skillActualPage = 0;
@@ -532,9 +538,9 @@ public class JustLevelingScreen extends Screen {
             if (this.skillActualPage > 0) {
                 boolean select = Utils.checkMouse(pageIconX - 12, pageIconY, mouseX, mouseY, 7, 11);
                 RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-                blit(matrixStack, pageIconX - 12, pageIconY, 241, select ? 12 : 0, 7, 11);
+                this.blit(matrixStack, pageIconX - 12, pageIconY, 241, select ? 12 : 0, 7, 11);
                 if (select) {
-                    Utils.drawToolTip(this, matrixStack, new TranslatableComponent("tooltip.skill.previous"), mouseX, mouseY);
+                    context.enqueueComponent(new TranslatableComponent("tooltip.skill.previous"));
                     this.isMouseCheck = true;
                     if (this.checkMouse) {
                         --this.skillActualPage;
@@ -547,9 +553,9 @@ public class JustLevelingScreen extends Screen {
             if (this.skillActualPage < this.skillSizePage) {
                 boolean select = Utils.checkMouse(pageIconX + client.font.width(pageNumber) + 5, pageIconY, mouseX, mouseY, 7, 11);
                 RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-                blit(matrixStack, pageIconX + client.font.width(pageNumber) + 5, pageIconY, 249, select ? 12 : 0, 7, 11);
+                this.blit(matrixStack, pageIconX + client.font.width(pageNumber) + 5, pageIconY, 249, select ? 12 : 0, 7, 11);
                 if (select) {
-                    Utils.drawToolTip(this, matrixStack, new TranslatableComponent("tooltip.skill.next"), mouseX, mouseY);
+                    context.enqueueComponent(new TranslatableComponent("tooltip.skill.next"));
                     this.isMouseCheck = true;
                     if (this.checkMouse) {
                         ++this.skillActualPage;
@@ -561,7 +567,7 @@ public class JustLevelingScreen extends Screen {
         }
     }
 
-    public void createList(List<Object> list, AptitudeCapability capability, PoseStack matrixStack, int x, int y, int mouseX, int mouseY) {
+    public void createList(List<Object> list, AptitudeCapability capability, PoseStack matrixStack, int x, int y, int mouseX, int mouseY, TooltipContext context) {
         assert client.screen != null;
         for (int i = 0; i < list.size(); i++) {
 
@@ -575,9 +581,9 @@ public class JustLevelingScreen extends Screen {
             if (object instanceof Passive passive) {
                 int isMax = (passive.getLevel() == passive.getMaxLevel()) ? 24 : 0;
                 RenderSystem.setShaderTexture(0, passive.getTexture());
-                this.blit(matrixStack, xTexture, yTexture, 0.0F, 0.0F, 20, 20, 20, 20);
+                blit(matrixStack, xTexture, yTexture, 0.0F, 0.0F, 20, 20, 20, 20);
                 RenderSystem.setShaderTexture(0, HandlerResources.SKILL_ICONS);
-                this.blit(matrixStack, xIcon, yIcon, 0.0F, isMax, 24, 24, 72, 72);
+                blit(matrixStack, xIcon, yIcon, 0.0F, isMax, 24, 24, 72, 72);
                 int centerTextureX = xIcon + 9 - client.font.width(String.valueOf(passive.getLevel())) / 2;
 
                 int iconAdd = (passive.getLevel() < passive.getMaxLevel() && AptitudeCapability.get().getAptitudeLevel(passive.aptitude) >= passive.getNextLevelUp()) ? 10 : 0;
@@ -607,10 +613,10 @@ public class JustLevelingScreen extends Screen {
                     }
 
                     //matrixStack.pushPose();
-                    Utils.drawToolTipList(this, matrixStack, passive.tooltip(), mouseX, mouseY);
+                    context.enqueueComponents(passive.tooltip());
                     RenderSystem.enableBlend();
                     RenderSystem.setShaderTexture(0, HandlerResources.SKILL_ICONS);
-                    this.blit(matrixStack, xIcon, yIcon, 0.0F, 48.0F, 24, 24, 72, 72);
+                    blit(matrixStack, xIcon, yIcon, 0.0F, 48.0F, 24, 24, 72, 72);
                     RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
                     this.blit(matrixStack, xIcon + 2, yIcon + 2, 1, 167 + iconLess, 9, 9);
                     this.blit(matrixStack, xIcon + 13, yIcon + 2, 11, 167 + iconAdd, 9, 9);
@@ -618,10 +624,9 @@ public class JustLevelingScreen extends Screen {
                 }
 
                 RenderSystem.setShaderTexture(0, HandlerResources.SKILL_PAGE[this.selectedPage]);
-                blit(matrixStack, centerTextureX, yIcon + 17, 21, 167, 7, 8);
+                this.blit(matrixStack, centerTextureX, yIcon + 17, 21, 167, 7, 8);
                 client.font.draw(matrixStack, String.valueOf(passive.getLevel()), centerTextureX + 8, yIcon + 18, Color.BLACK.getRGB());
                 client.font.draw(matrixStack, String.valueOf(passive.getLevel()), centerTextureX + 7, yIcon + 17, Color.WHITE.getRGB());
-
             }
 
 
@@ -630,18 +635,18 @@ public class JustLevelingScreen extends Screen {
                 int isToggle = 0;
                 if (skill.canSkill()) isToggle = 24;
                 RenderSystem.setShaderTexture(0, skill.getTexture());
-                this.blit(matrixStack, xTexture, yTexture, 0.0F, 0.0F, 20, 20, 20, 20);
+                blit(matrixStack, xTexture, yTexture, 0.0F, 0.0F, 20, 20, 20, 20);
                 RenderSystem.setShaderTexture(0, HandlerResources.SKILL_ICONS);
-                this.blit(matrixStack, xIcon, yIcon, 24.0F, isToggle, 24, 24, 72, 72);
+                blit(matrixStack, xIcon, yIcon, 24.0F, isToggle, 24, 24, 72, 72);
                 if (!skill.getToggle()) {
                     matrixStack.pushPose();
                     RenderSystem.enableBlend();
                     RenderSystem.setShaderTexture(0, HandlerResources.SKILL_ICONS);
-                    this.blit(matrixStack, xIcon, yIcon, 24.0F, 48.0F, 24, 24, 72, 72);
+                    blit(matrixStack, xIcon, yIcon, 24.0F, 48.0F, 24, 24, 72, 72);
                     matrixStack.popPose();
                 }
                 if (Utils.checkMouse(xIcon, yIcon, mouseX, mouseY, 24, 24)) {
-                    Utils.drawToolTipList(this, matrixStack, skill.tooltip(), mouseX, mouseY);
+                    context.enqueueComponents(skill.tooltip());
                     if (skill.getToggle()) {
                         this.isMouseCheck = true;
                         if (this.checkMouse) {
@@ -652,7 +657,6 @@ public class JustLevelingScreen extends Screen {
                     }
                 }
             }
-
         }
     }
 
