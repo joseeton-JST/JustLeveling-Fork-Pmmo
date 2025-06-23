@@ -87,12 +87,19 @@ public class Utils {
         client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
+    /**
+     * @see com.seniors.justlevelingfork.client.screen.TooltipContext
+     */
     public static void drawToolTip(Screen screen, PoseStack matrixStack, Component tooltip, int mouseX, int mouseY) {
         matrixStack.pushPose();
         screen.renderTooltip(matrixStack, tooltip, mouseX, mouseY);
         matrixStack.popPose();
     }
 
+    /**
+     * @deprecated
+     * @see com.seniors.justlevelingfork.client.screen.TooltipContext
+     */
     public static void drawToolTipList(Screen screen, PoseStack matrixStack, List<Component> tooltip, int mouseX, int mouseY) {
         matrixStack.pushPose();
         screen.renderTooltip(matrixStack, tooltip, Optional.empty(), mouseX, mouseY);
