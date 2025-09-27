@@ -34,6 +34,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -84,12 +85,16 @@ public class JustLevelingFork {
         ServerNetworking.init();
 
         // Check for new updates
-        if (HandlerCommonConfig.HANDLER.instance().checkForUpdates) {
+    if (HandlerCommonConfig.HANDLER.instance().checkForUpdates) {
+        CompletableFuture.runAsync(() -> {
             try {
                 String version = getLatestVersion();
-
-                Optional<IModInfo> optionalModInfo = ModList.get().getMods().stream().filter(c -> Objects.equals(c.getModId(), MOD_ID)).findFirst();
-
+    
+                Optional<IModInfo> optionalModInfo = ModList.get().getMods()
+                        .stream()
+                        .filter(c -> Objects.equals(c.getModId(), MOD_ID))
+                        .findFirst();
+                
                 // Is this somehow isn't present then some really strange shit happen
                 if (optionalModInfo.isPresent()) {
                     ModInfo modInfo = (ModInfo) optionalModInfo.get();
@@ -100,9 +105,9 @@ public class JustLevelingFork {
                     }
                 }
             } catch (Exception e) {
-                LOGGER.warn(">> Error checking for updates!");
+                LOGGER.warn(">> Error checking for updates!", e);
             }
-        }
+        });
     }
 
     @NotNull
