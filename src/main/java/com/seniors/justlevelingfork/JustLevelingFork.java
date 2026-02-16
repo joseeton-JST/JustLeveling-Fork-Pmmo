@@ -2,7 +2,6 @@ package com.seniors.justlevelingfork;
 
 import com.mojang.logging.LogUtils;
 import com.seniors.justlevelingfork.config.Configuration;
-import com.seniors.justlevelingfork.config.models.EAptitude;
 import com.seniors.justlevelingfork.config.models.LockItem;
 import com.seniors.justlevelingfork.handler.HandlerCommonConfig;
 import com.seniors.justlevelingfork.handler.HandlerConfigCommon;
@@ -23,7 +22,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.moddiscovery.ModInfo;
 import net.minecraftforge.forgespi.language.IModInfo;
-import org.apache.commons.lang3.StringUtils;
+
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -85,29 +84,30 @@ public class JustLevelingFork {
         ServerNetworking.init();
 
         // Check for new updates
-    if (HandlerCommonConfig.HANDLER.instance().checkForUpdates) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                String version = getLatestVersion();
-    
-                Optional<IModInfo> optionalModInfo = ModList.get().getMods()
-                        .stream()
-                        .filter(c -> Objects.equals(c.getModId(), MOD_ID))
-                        .findFirst();
-                
-                // Is this somehow isn't present then some really strange shit happen
-                if (optionalModInfo.isPresent()) {
-                    ModInfo modInfo = (ModInfo) optionalModInfo.get();
-                    if (!Objects.equals(modInfo.getVersion().toString(), version)) {
-                        UpdatesAvailable.left = true;
-                        UpdatesAvailable.right = version;
-                        LOGGER.info(">> NEW VERSION AVAILABLE: {}", version);
+        if (HandlerCommonConfig.HANDLER.instance().checkForUpdates) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String version = getLatestVersion();
+
+                    Optional<IModInfo> optionalModInfo = ModList.get().getMods()
+                            .stream()
+                            .filter(c -> Objects.equals(c.getModId(), MOD_ID))
+                            .findFirst();
+
+                    // Is this somehow isn't present then some really strange shit happen
+                    if (optionalModInfo.isPresent()) {
+                        ModInfo modInfo = (ModInfo) optionalModInfo.get();
+                        if (!Objects.equals(modInfo.getVersion().toString(), version)) {
+                            UpdatesAvailable.left = true;
+                            UpdatesAvailable.right = version;
+                            LOGGER.info(">> NEW VERSION AVAILABLE: {}", version);
+                        }
                     }
+                } catch (Exception e) {
+                    LOGGER.warn(">> Error checking for updates!", e);
                 }
-            } catch (Exception e) {
-                LOGGER.warn(">> Error checking for updates!", e);
-            }
-        });
+            });
+        }
     }
 
     @NotNull
@@ -177,7 +177,7 @@ public class JustLevelingFork {
                 }
 
                 LockItem.Aptitude aptitude = new LockItem.Aptitude();
-                aptitude.Aptitude = EAptitude.valueOf(StringUtils.capitalize(aptitudePath));
+                aptitude.Aptitude = aptitudePath.toLowerCase();
                 aptitude.Level = Integer.parseInt(aptitudeValues[1]);
 
                 aptitudes.add(aptitude);

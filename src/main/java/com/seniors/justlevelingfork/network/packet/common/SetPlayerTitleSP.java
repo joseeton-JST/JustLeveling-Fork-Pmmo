@@ -9,7 +9,6 @@ import com.seniors.justlevelingfork.registry.title.Title;
 import java.util.function.Supplier;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
@@ -32,16 +31,29 @@ public class SetPlayerTitleSP {
         NetworkEvent.Context context = supplier.get();
         context.enqueueWork(() -> {
             ServerPlayer player = context.getSender();
-
-            if (player != null) {
-                AptitudeCapability capability = AptitudeCapability.get(player);
-                Title title = RegistryTitles.getTitle(this.title);
-                capability.setPlayerTitle(title);
-                player.setCustomName(Component.translatable(title.getKey()));
-                player.refreshDisplayName();
-                player.refreshTabListName();
-                SyncAptitudeCapabilityCP.send(player);
+            if (player == null) {
+                return;
             }
+
+            AptitudeCapability capability = AptitudeCapability.get(player);
+            if (capability == null) {
+                return;
+            }
+
+            Title title = RegistryTitles.getTitle(this.title);
+            if (title == null || !capability.getLockTitle(title)) {
+                return;
+            }
+
+            if (title.getName().equalsIgnoreCase(capability.getPlayerTitle())) {
+                return;
+            }
+
+            capability.setPlayerTitle(title);
+            player.setCustomName(title.getDisplayNameComponentOrFallback());
+            player.refreshDisplayName();
+            player.refreshTabListName();
+            SyncAptitudeCapabilityCP.send(player);
         });
         context.setPacketHandled(true);
     }

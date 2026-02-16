@@ -11,6 +11,7 @@ import net.minecraftforge.registries.RegistryObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 public class TitleModel {
@@ -55,40 +56,52 @@ public class TitleModel {
     }
 
     public boolean CheckRequirements(ServerPlayer serverPlayer) {
+        return checkRequirements(TitleId, Conditions, Default, serverPlayer);
+    }
 
-        // If the title should be given by default then lets ignore conditions.
-        if (Default) return true;
+    public static boolean checkRequirements(String titleId, List<String> conditions, boolean defaultUnlocked, ServerPlayer serverPlayer) {
+        if (defaultUnlocked) {
+            return true;
+        }
+
+        if (conditions == null || conditions.isEmpty()) {
+            return false;
+        }
 
         byte passedConditions = 0;
-        for (String condition : Conditions) {
-            String[] split = condition.split("/");
-
-            if (split.length != 4) {
-                JustLevelingFork.getLOGGER().error(">> Error! Title {} have a wrong formatted condition. (General)", TitleId);
+        for (String condition : conditions) {
+            if (condition == null || condition.isBlank()) {
+                JustLevelingFork.getLOGGER().error(">> Error! Title {} have a wrong formatted condition. (Empty)", titleId);
                 continue;
             }
-            EComparator comparator;
 
+            String[] split = condition.split("/");
+            if (split.length != 4) {
+                JustLevelingFork.getLOGGER().error(">> Error! Title {} have a wrong formatted condition. (General)", titleId);
+                continue;
+            }
+
+            EComparator comparator;
             try {
-                comparator = EComparator.valueOf(split[2].toUpperCase());
+                comparator = EComparator.valueOf(split[2].toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
-                JustLevelingFork.getLOGGER().error(">> Error! Title {} have a wrong formatted condition. (Comparator)", TitleId);
+                JustLevelingFork.getLOGGER().error(">> Error! Title {} have a wrong formatted condition. (Comparator)", titleId);
                 continue;
             }
 
             Optional<ConditionImpl<?>> conditionImpl = HandlerConditions.getConditionByName(split[0]);
-            if(conditionImpl.isEmpty()){
-                JustLevelingFork.getLOGGER().error(">> Error! Title {} have a wrong formatted condition. (Condition type or Comparator)", TitleId);
+            if (conditionImpl.isEmpty()) {
+                JustLevelingFork.getLOGGER().error(">> Error! Title {} have a wrong formatted condition. (Condition type or Comparator)", titleId);
                 continue;
             }
 
             conditionImpl.get().ProcessVariable(split[1], serverPlayer);
-            if(conditionImpl.get().MeetCondition(split[3], comparator)){
+            if (conditionImpl.get().MeetCondition(split[3], comparator)) {
                 passedConditions++;
             }
         }
 
-        return passedConditions == Conditions.size();
+        return passedConditions == conditions.size();
     }
 
     public RegistryObject<Title> registry(DeferredRegister<Title> TITLES) {

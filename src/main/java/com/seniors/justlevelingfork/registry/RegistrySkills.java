@@ -11,19 +11,23 @@ import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.RegisterEvent;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.IForgeRegistry;
 import net.minecraftforge.registries.RegistryBuilder;
 import net.minecraftforge.registries.RegistryObject;
 
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 
 public class RegistrySkills {
     public static final ResourceKey<Registry<Skill>> SKILLS_KEY = ResourceKey.createRegistryKey(new ResourceLocation(JustLevelingFork.MOD_ID, "skills"));
     public static final DeferredRegister<Skill> SKILLS = DeferredRegister.create(SKILLS_KEY, JustLevelingFork.MOD_ID);
     public static final Supplier<IForgeRegistry<Skill>> SKILLS_REGISTRY = SKILLS.makeRegistry(() -> new RegistryBuilder<Skill>().disableSaving());
+    private static final Map<ResourceLocation, Skill> PENDING_CUSTOM = new LinkedHashMap<>();
 
     public static final RegistryObject<Skill> ONE_HANDED = HandlerCommonConfig.HANDLER.instance().oneHandedRequiredLevel < 0 ? null : SKILLS.register("one_handed", () -> register("one_handed", RegistryAptitudes.STRENGTH.get(), HandlerCommonConfig.HANDLER.instance().oneHandedRequiredLevel, HandlerResources.ONE_HANDED_SKILL, new Value(ValueType.AMPLIFIER, HandlerCommonConfig.HANDLER.instance().oneHandedAmplifier)));
 
@@ -80,10 +84,83 @@ public class RegistrySkills {
 
     public static void load(IEventBus eventBus) {
         SKILLS.register(eventBus);
+        eventBus.addListener((RegisterEvent event) -> event.register(SKILLS_KEY, helper ->
+                PENDING_CUSTOM.forEach(helper::register)));
     }
 
-    public static Skill getSkill(String skillName) {
-        return SKILLS_REGISTRY.get().getValues().stream().collect(Collectors.toMap(Skill::getName, Skill::get)).get(skillName);
+    public static void addPendingSkill(String name, Skill skill) {
+        if (name == null || skill == null) {
+            return;
+        }
+
+        addPendingSkill(new ResourceLocation(JustLevelingFork.MOD_ID, name.toLowerCase(Locale.ROOT)), skill);
+    }
+
+    public static void addPendingSkill(ResourceLocation id, Skill skill) {
+        if (id == null || skill == null) {
+            return;
+        }
+
+        PENDING_CUSTOM.put(id, skill);
+    }
+
+    public static Skill getSkill(String skillNameOrId) {
+        if (skillNameOrId == null || skillNameOrId.isBlank()) {
+            return null;
+        }
+
+        ResourceLocation parsed = parseResourceLocation(skillNameOrId);
+        IForgeRegistry<Skill> registry = SKILLS_REGISTRY.get();
+
+        if (parsed != null) {
+            Skill pendingById = PENDING_CUSTOM.get(parsed);
+            if (pendingById != null) {
+                return pendingById;
+            }
+            if (registry != null) {
+                Skill registeredById = registry.getValue(parsed);
+                if (registeredById != null) {
+                    return registeredById;
+                }
+            }
+        }
+
+        String normalizedPath = parsed != null
+                ? parsed.getPath().toLowerCase(Locale.ROOT)
+                : skillNameOrId.toLowerCase(Locale.ROOT);
+
+        Skill pendingByPath = PENDING_CUSTOM.entrySet().stream()
+                .filter(entry -> entry.getKey().getPath().equalsIgnoreCase(normalizedPath))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+        if (pendingByPath != null) {
+            return pendingByPath;
+        }
+
+        if (registry == null) {
+            return null;
+        }
+
+        return registry.getValues().stream()
+                .filter(skill -> skill.getName().equalsIgnoreCase(normalizedPath))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static Map<ResourceLocation, Skill> getPendingCustomSnapshot() {
+        return Map.copyOf(PENDING_CUSTOM);
+    }
+
+    private static ResourceLocation parseResourceLocation(String raw) {
+        String normalized = raw.toLowerCase(Locale.ROOT);
+        try {
+            return normalized.contains(":")
+                    ? new ResourceLocation(normalized)
+                    : new ResourceLocation(JustLevelingFork.MOD_ID, normalized);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 }
 

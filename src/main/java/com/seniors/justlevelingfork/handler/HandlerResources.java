@@ -9,6 +9,7 @@ public class HandlerResources {
             create("textures/gui/container/skill_page_2.png"),
             create("textures/gui/container/skill_page_3.png")
     };
+    public static final ResourceLocation SKILL_PAGE_2_EXPANDED = create("textures/gui/container/skill_page_2_expanded.png");
 
     public static final ResourceLocation[] STRENGTH_LOCKED_ICON = new ResourceLocation[]{
             create("textures/skill/strength/locked_0.png"),

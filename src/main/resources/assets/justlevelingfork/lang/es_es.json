@@ -134,6 +134,8 @@
  "tooltip.sort.button.by_level" : " >Por nivel requerido",
 
  "tooltip.general.description.more_information" : "[Manten Shift para obtener mas info]",
+ "tooltip.sp.footer" : "%s Puntos de Habilidad",
+ "tooltip.sp.badge" : "SP %s/%s (-%s)",
 
  "tooltip.passive.description.passive_level" : "Nivel: %s/%s",
  "tooltip.passive.description.level_requirement" : "Requisito del siguiente nivel:",

@@ -3,7 +3,6 @@ package com.seniors.justlevelingfork.common.capability;
 import com.seniors.justlevelingfork.client.core.Aptitudes;
 import com.seniors.justlevelingfork.client.gui.OverlayAptitudeGui;
 import com.seniors.justlevelingfork.handler.HandlerAptitude;
-import com.seniors.justlevelingfork.handler.HandlerCommonConfig;
 import com.seniors.justlevelingfork.network.packet.client.AptitudeOverlayCP;
 import com.seniors.justlevelingfork.registry.*;
 import com.seniors.justlevelingfork.registry.aptitude.Aptitude;
@@ -13,6 +12,7 @@ import com.seniors.justlevelingfork.registry.title.Title;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -25,15 +25,18 @@ import net.minecraftforge.registries.ForgeRegistries;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
 public class AptitudeCapability implements INBTSerializable<CompoundTag> {
     public Map<String, Integer> aptitudeLevel = mapAptitudes();
+    public Map<String, Integer> aptitudePointsSpent = mapAptitudePointsSpent();
     public Map<String, Integer> passiveLevel = mapPassive();
+    public Map<String, Boolean> unlockSkill = mapUnlockedSkills();
     public Map<String, Boolean> toggleSkill = mapSkills();
     public Map<String, Boolean> unlockTitle = mapTitles();
-    public String playerTitle = RegistryTitles.getTitle("titleless").getName();
+    public String playerTitle = "titleless";
     public double betterCombatEntityRange = 0.0D;
 
     public int counterAttackTimer = 0;
@@ -57,7 +60,25 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
         return map;
     }
 
+    private Map<String, Integer> mapAptitudePointsSpent() {
+        Map<String, Integer> map = new HashMap<>();
+        List<Aptitude> aptitudeList = RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream().toList();
+        for (Aptitude aptitude : aptitudeList) {
+            map.put(aptitude.getName(), 0);
+        }
+        return map;
+    }
+
     private Map<String, Boolean> mapSkills() {
+        Map<String, Boolean> map = new HashMap<>();
+        List<Skill> skillList = RegistrySkills.SKILLS_REGISTRY.get().getValues().stream().toList();
+        for (Skill skill : skillList) {
+            map.put(skill.getName(), false);
+        }
+        return map;
+    }
+
+    private Map<String, Boolean> mapUnlockedSkills() {
         Map<String, Boolean> map = new HashMap<>();
         List<Skill> skillList = RegistrySkills.SKILLS_REGISTRY.get().getValues().stream().toList();
         for (Skill skill : skillList) {
@@ -111,15 +132,26 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
     }
 
     public int getAptitudeLevel(Aptitude aptitude) {
-        return this.aptitudeLevel.get(aptitude.getName());
+        if (aptitude == null) {
+            return 0;
+        }
+        return this.aptitudeLevel.getOrDefault(aptitude.getName(), 1);
     }
 
     public int getAptitudeLevel(String aptitudeName) {
-        return this.aptitudeLevel.get(aptitudeName);
+        if (aptitudeName == null || aptitudeName.isEmpty()) {
+            return 0;
+        }
+        String normalized = aptitudeName.toLowerCase(Locale.ROOT);
+        return this.aptitudeLevel.containsKey(normalized) ? this.aptitudeLevel.get(normalized) : 0;
     }
 
     public void setAptitudeLevel(Aptitude aptitude, int lvl) {
-        this.aptitudeLevel.put(aptitude.getName(), lvl);
+        if (aptitude == null) {
+            return;
+        }
+        this.aptitudeLevel.put(aptitude.getName(), Math.max(1, Math.min(lvl, aptitude.getLevelCap())));
+        clampAptitudePointsSpent(aptitude);
     }
 
     public int getGlobalLevel(){
@@ -127,31 +159,176 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
     }
 
     public void addAptitudeLevel(Aptitude aptitude, int addLvl) {
-        this.aptitudeLevel.put(aptitude.getName(), Math.min(this.aptitudeLevel.get(aptitude.getName()) + addLvl, HandlerCommonConfig.HANDLER.instance().aptitudeMaxLevel));
+        if (aptitude == null) {
+            return;
+        }
+        int currentLevel = this.aptitudeLevel.getOrDefault(aptitude.getName(), 1);
+        int maxLevel = aptitude.getLevelCap();
+        this.aptitudeLevel.put(aptitude.getName(), Math.max(1, Math.min(currentLevel + addLvl, maxLevel)));
+        clampAptitudePointsSpent(aptitude);
+    }
+
+    public int getAptitudeSkillPointsTotal(Aptitude aptitude) {
+        if (aptitude == null) {
+            return 0;
+        }
+        int interval = Math.max(1, aptitude.getSkillPointInterval());
+        int level = Math.max(0, getAptitudeLevel(aptitude));
+        return level / interval;
+    }
+
+    public int getAptitudeSkillPointsSpent(Aptitude aptitude) {
+        if (aptitude == null) {
+            return 0;
+        }
+        return Math.max(0, this.aptitudePointsSpent.getOrDefault(aptitude.getName(), 0));
+    }
+
+    public int getAptitudeSkillPointsAvailable(Aptitude aptitude) {
+        if (aptitude == null) {
+            return 0;
+        }
+        return Math.max(0, getAptitudeSkillPointsTotal(aptitude) - getAptitudeSkillPointsSpent(aptitude));
+    }
+
+    public boolean trySpendAptitudePoints(Aptitude aptitude, int amount) {
+        if (aptitude == null) {
+            return false;
+        }
+        if (amount <= 0) {
+            return true;
+        }
+        int available = getAptitudeSkillPointsAvailable(aptitude);
+        if (available < amount) {
+            return false;
+        }
+        this.aptitudePointsSpent.put(aptitude.getName(), getAptitudeSkillPointsSpent(aptitude) + amount);
+        return true;
+    }
+
+    public void refundAptitudePoints(Aptitude aptitude, int amount) {
+        if (aptitude == null || amount <= 0) {
+            return;
+        }
+        int current = getAptitudeSkillPointsSpent(aptitude);
+        this.aptitudePointsSpent.put(aptitude.getName(), Math.max(0, current - amount));
+    }
+
+    public void respecAptitude(Aptitude aptitude) {
+        if (aptitude == null) {
+            return;
+        }
+
+        for (Passive passive : RegistryPassives.PASSIVES_REGISTRY.get().getValues().stream().toList()) {
+            if (passive.aptitude == aptitude) {
+                this.passiveLevel.put(passive.getName(), 0);
+            }
+        }
+        for (Skill skill : RegistrySkills.SKILLS_REGISTRY.get().getValues().stream().toList()) {
+            if (skill.aptitude == aptitude) {
+                this.unlockSkill.put(skill.getName(), false);
+                this.toggleSkill.put(skill.getName(), false);
+            }
+        }
+        this.aptitudePointsSpent.put(aptitude.getName(), 0);
     }
 
     public int getPassiveLevel(Passive passive) {
-        return this.passiveLevel.get(passive.getName());
+        if (passive == null) {
+            return 0;
+        }
+        return this.passiveLevel.getOrDefault(passive.getName(), 0);
     }
 
     public void addPassiveLevel(Passive passive, int addLvl) {
-        this.passiveLevel.put(passive.getName(), Math.min(this.passiveLevel.get(passive.getName()) + addLvl, passive.levelsRequired.length));
+        if (passive == null || addLvl <= 0) {
+            return;
+        }
+
+        int currentLevel = getPassiveLevel(passive);
+        int targetLevel = Math.min(currentLevel + addLvl, passive.levelsRequired.length);
+        int aptitudeLevel = getAptitudeLevel(passive.aptitude);
+
+        // Validate each passive level step against aptitude requirements.
+        while (currentLevel < targetLevel) {
+            int requiredAptitudeLevel = passive.levelsRequired[currentLevel];
+            if (aptitudeLevel < requiredAptitudeLevel) {
+                break;
+            }
+            currentLevel++;
+        }
+
+        this.passiveLevel.put(passive.getName(), currentLevel);
     }
 
     public void subPassiveLevel(Passive passive, int subLvl) {
-        this.passiveLevel.put(passive.getName(), Math.max(this.passiveLevel.get(passive.getName()) - subLvl, 0));
+        if (passive == null || subLvl <= 0) {
+            return;
+        }
+        this.passiveLevel.put(passive.getName(), Math.max(getPassiveLevel(passive) - subLvl, 0));
     }
 
     public boolean getToggleSkill(Skill skill) {
-        return this.toggleSkill.get(skill.getName());
+        if (skill == null) {
+            return false;
+        }
+        return this.toggleSkill.getOrDefault(skill.getName(), false);
+    }
+
+    public boolean isSkillUnlocked(Skill skill) {
+        if (skill == null) {
+            return false;
+        }
+        return this.unlockSkill.getOrDefault(skill.getName(), false);
+    }
+
+    public void setSkillUnlocked(Skill skill, boolean unlocked) {
+        if (skill == null) {
+            return;
+        }
+        this.unlockSkill.put(skill.getName(), unlocked);
+        if (!unlocked) {
+            this.toggleSkill.put(skill.getName(), false);
+        }
+    }
+
+    public boolean tryUnlockSkill(Skill skill) {
+        if (skill == null) {
+            return false;
+        }
+        if (isSkillUnlocked(skill)) {
+            return true;
+        }
+        if (!skill.aptitude.isEnabled() || skill.requiredLevel <= 0) {
+            return false;
+        }
+        if (getAptitudeLevel(skill.aptitude) < skill.requiredLevel) {
+            return false;
+        }
+        if (!trySpendAptitudePoints(skill.aptitude, skill.getPointCost())) {
+            return false;
+        }
+        this.unlockSkill.put(skill.getName(), true);
+        return true;
     }
 
     public void setToggleSkill(Skill skill, boolean toggle) {
-        this.toggleSkill.put(skill.getName(), toggle);
+        if (skill == null) {
+            return;
+        }
+
+        boolean canEnable = skill.aptitude.isEnabled()
+                && skill.requiredLevel > 0
+                && getAptitudeLevel(skill.aptitude) >= skill.requiredLevel;
+
+        this.toggleSkill.put(skill.getName(), toggle && canEnable);
     }
 
     public boolean getLockTitle(Title title) {
-        return this.unlockTitle.get(title.getName());
+        if (title == null) {
+            return false;
+        }
+        return this.unlockTitle.getOrDefault(title.getName(), title.Requirement);
     }
 
     public void setUnlockTitle(Title title, boolean requirement) {
@@ -167,7 +344,17 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
     }
 
     public boolean canUseItem(Player player, ItemStack item) {
-        return canUse(player, Objects.requireNonNull(ForgeRegistries.ITEMS.getKey(item.getItem())));
+        if (item == null || item.isEmpty()) {
+            return true;
+        }
+
+        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(item.getItem());
+        if (itemId == null) {
+            return true;
+        }
+
+        List<Aptitudes> aptitude = HandlerAptitude.getValue(item);
+        return canUse(player, itemId.toString(), aptitude);
     }
 
     public boolean canUseItem(Player player, ResourceLocation resourceLocation) {
@@ -192,17 +379,7 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
     }
 
     private boolean canUse(Player player, ResourceLocation resource) {
-        List<Aptitudes> aptitude = HandlerAptitude.getValue(resource.toString());
-        if (aptitude != null) {
-            for (Aptitudes aptitudes : aptitude) {
-                if (getAptitudeLevel(aptitudes.getAptitude()) < aptitudes.getAptitudeLvl()) {
-                    if (player instanceof net.minecraft.server.level.ServerPlayer)
-                        AptitudeOverlayCP.send(player, resource.toString());
-                    return false;
-                }
-            }
-        }
-        return true;
+        return canUse(player, resource.toString(), HandlerAptitude.getValue(resource.toString()));
     }
 
     // Required for locking PointBlank
@@ -220,7 +397,10 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
     }
 
     private boolean canUse(Player player, String restrictionID) {
-        List<Aptitudes> aptitude = HandlerAptitude.getValue(restrictionID);
+        return canUse(player, restrictionID, HandlerAptitude.getValue(restrictionID));
+    }
+
+    private boolean canUse(Player player, String restrictionID, List<Aptitudes> aptitude) {
         if (aptitude != null) {
             for (Aptitudes aptitudes : aptitude) {
                 if (getAptitudeLevel(aptitudes.getAptitude()) < aptitudes.getAptitudeLvl()) {
@@ -236,16 +416,18 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
         for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream().toList()){
-            nbt.putInt("aptitude." + aptitude.getName(), this.aptitudeLevel.get(aptitude.getName()));
+            nbt.putInt("aptitude." + aptitude.getName(), this.aptitudeLevel.getOrDefault(aptitude.getName(), 1));
+            nbt.putInt("aptitude_spent." + aptitude.getName(), this.aptitudePointsSpent.getOrDefault(aptitude.getName(), 0));
         }
         for (Passive passive : RegistryPassives.PASSIVES_REGISTRY.get().getValues().stream().toList()){
-            nbt.putInt("passive." + passive.getName(), this.passiveLevel.get(passive.getName()));
+            nbt.putInt("passive." + passive.getName(), this.passiveLevel.getOrDefault(passive.getName(), 0));
         }
         for (Skill skill : RegistrySkills.SKILLS_REGISTRY.get().getValues().stream().toList()){
-            nbt.putBoolean("skill." + skill.getName(), this.toggleSkill.get(skill.getName()));
+            nbt.putBoolean("skill_unlocked." + skill.getName(), this.unlockSkill.getOrDefault(skill.getName(), false));
+            nbt.putBoolean("skill." + skill.getName(), this.toggleSkill.getOrDefault(skill.getName(), false));
         }
         for (Title title : RegistryTitles.TITLES_REGISTRY.get().getValues().stream().toList()){
-            nbt.putBoolean("title." + title.getName(), this.unlockTitle.get(title.getName()));
+            nbt.putBoolean("title." + title.getName(), this.unlockTitle.getOrDefault(title.getName(), title.Requirement));
         }
         nbt.putInt("counterAttackTimer", this.counterAttackTimer);
         nbt.putBoolean("counterAttack", this.counterAttack);
@@ -256,16 +438,44 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
 
     public void deserializeNBT(CompoundTag nbt) {
         for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream().toList()){
-            this.aptitudeLevel.put(aptitude.getName(), nbt.getInt("aptitude." + aptitude.getName()));
+            String key = "aptitude." + aptitude.getName();
+            if (nbt.contains(key, Tag.TAG_INT)) {
+                this.aptitudeLevel.put(aptitude.getName(), Math.max(1, nbt.getInt(key)));
+            }
+            String spentKey = "aptitude_spent." + aptitude.getName();
+            if (nbt.contains(spentKey, Tag.TAG_INT)) {
+                this.aptitudePointsSpent.put(aptitude.getName(), Math.max(0, nbt.getInt(spentKey)));
+            } else {
+                this.aptitudePointsSpent.put(aptitude.getName(), 0);
+            }
+            clampAptitudePointsSpent(aptitude);
         }
         for (Passive passive : RegistryPassives.PASSIVES_REGISTRY.get().getValues().stream().toList()){
-            this.passiveLevel.put(passive.getName(), nbt.getInt("passive." + passive.getName()));
+            String key = "passive." + passive.getName();
+            if (nbt.contains(key, Tag.TAG_INT)) {
+                this.passiveLevel.put(passive.getName(), Math.max(0, nbt.getInt(key)));
+            }
         }
         for (Skill skill : RegistrySkills.SKILLS_REGISTRY.get().getValues().stream().toList()){
-            this.toggleSkill.put(skill.getName(), nbt.getBoolean("skill." + skill.getName()));
+            String unlockedKey = "skill_unlocked." + skill.getName();
+            if (nbt.contains(unlockedKey, Tag.TAG_BYTE)) {
+                this.unlockSkill.put(skill.getName(), nbt.getBoolean(unlockedKey));
+            } else {
+                this.unlockSkill.put(skill.getName(), false);
+            }
+            String key = "skill." + skill.getName();
+            if (nbt.contains(key, Tag.TAG_BYTE)) {
+                this.toggleSkill.put(skill.getName(), nbt.getBoolean(key));
+            }
+            if (!this.unlockSkill.getOrDefault(skill.getName(), false)) {
+                this.toggleSkill.put(skill.getName(), false);
+            }
         }
         for (Title title : RegistryTitles.TITLES_REGISTRY.get().getValues().stream().toList()){
-            this.unlockTitle.put(title.getName(), nbt.getBoolean("title." + title.getName()));
+            String key = "title." + title.getName();
+            if (nbt.contains(key, Tag.TAG_BYTE)) {
+                this.unlockTitle.put(title.getName(), nbt.getBoolean(key));
+            }
         }
 
         this.counterAttackTimer = nbt.getInt("counterAttackTimer");
@@ -276,22 +486,39 @@ public class AptitudeCapability implements INBTSerializable<CompoundTag> {
 
     public void copyFrom(AptitudeCapability source) {
         for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream().toList()){
-            this.aptitudeLevel.put(aptitude.getName(), source.aptitudeLevel.get(aptitude.getName()));
+            this.aptitudeLevel.put(aptitude.getName(), source.aptitudeLevel.getOrDefault(aptitude.getName(), 1));
+            this.aptitudePointsSpent.put(aptitude.getName(), source.aptitudePointsSpent.getOrDefault(aptitude.getName(), 0));
+            clampAptitudePointsSpent(aptitude);
         }
         for (Passive passive : RegistryPassives.PASSIVES_REGISTRY.get().getValues().stream().toList()){
-            this.passiveLevel.put(passive.getName(), source.passiveLevel.get(passive.getName()));
+            this.passiveLevel.put(passive.getName(), source.passiveLevel.getOrDefault(passive.getName(), 0));
         }
         for (Skill skill : RegistrySkills.SKILLS_REGISTRY.get().getValues().stream().toList()){
-            this.toggleSkill.put(skill.getName(), source.toggleSkill.get(skill.getName()));
+            this.unlockSkill.put(skill.getName(), source.unlockSkill.getOrDefault(skill.getName(), false));
+            this.toggleSkill.put(skill.getName(), source.toggleSkill.getOrDefault(skill.getName(), false));
+            if (!this.unlockSkill.getOrDefault(skill.getName(), false)) {
+                this.toggleSkill.put(skill.getName(), false);
+            }
         }
         for (Title title : RegistryTitles.TITLES_REGISTRY.get().getValues().stream().toList()){
-            this.unlockTitle.put(title.getName(), source.unlockTitle.get(title.getName()));
+            this.unlockTitle.put(title.getName(), source.unlockTitle.getOrDefault(title.getName(), title.Requirement));
         }
 
         this.counterAttackTimer = source.counterAttackTimer;
         this.counterAttack = source.counterAttack;
         this.playerTitle = source.playerTitle;
         this.betterCombatEntityRange = source.betterCombatEntityRange;
+    }
+
+    private void clampAptitudePointsSpent(Aptitude aptitude) {
+        if (aptitude == null) {
+            return;
+        }
+        int maxSpend = getAptitudeSkillPointsTotal(aptitude);
+        int current = getAptitudeSkillPointsSpent(aptitude);
+        if (current > maxSpend) {
+            this.aptitudePointsSpent.put(aptitude.getName(), maxSpend);
+        }
     }
 }
 

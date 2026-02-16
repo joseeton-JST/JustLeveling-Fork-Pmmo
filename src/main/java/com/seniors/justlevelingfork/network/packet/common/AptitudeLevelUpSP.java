@@ -1,9 +1,11 @@
 package com.seniors.justlevelingfork.network.packet.common;
 
 import com.seniors.justlevelingfork.JustLevelingFork;
-import com.seniors.justlevelingfork.client.core.Utils;
 import com.seniors.justlevelingfork.common.capability.AptitudeCapability;
 import com.seniors.justlevelingfork.handler.HandlerCommonConfig;
+import com.seniors.justlevelingfork.integration.KubeJSIntegration;
+import com.seniors.justlevelingfork.kubejs.LevelLockAPI;
+import com.seniors.justlevelingfork.kubejs.SkillChangeAPI;
 import com.seniors.justlevelingfork.network.ServerNetworking;
 import com.seniors.justlevelingfork.network.packet.client.SyncAptitudeCapabilityCP;
 import com.seniors.justlevelingfork.registry.RegistryAptitudes;
@@ -36,25 +38,51 @@ public class AptitudeLevelUpSP {
             ServerPlayer player = context.getSender();
             if (player != null) {
                 AptitudeCapability capability = AptitudeCapability.get(player);
+                if (capability == null) {
+                    return;
+                }
                 Aptitude aptitudePlayer = RegistryAptitudes.getAptitude(this.aptitude);
+                if (aptitudePlayer == null || !aptitudePlayer.isEnabled()) {
+                    return;
+                }
+
                 int aptitudeLevel = capability.getAptitudeLevel(aptitudePlayer);
+                int levelCap = aptitudePlayer.getLevelCap();
+                if (aptitudeLevel >= levelCap) {
+                    return;
+                }
+
+                int requiredLevels = requiredExperienceLevels(aptitudeLevel, aptitudePlayer);
+                int requiredPoints = requiredPoints(aptitudeLevel, aptitudePlayer);
 
                 boolean canLevelUpAptitude = (player.isCreative()
-                        || AptitudeLevelUpSP.requiredPoints(aptitudeLevel) <= player.totalExperience
-                        || AptitudeLevelUpSP.requiredExperienceLevels(aptitudeLevel) <= player.experienceLevel);
+                        || requiredPoints <= player.totalExperience
+                        || requiredLevels <= player.experienceLevel);
 
                 if (!canLevelUpAptitude){
                     JustLevelingFork.getLOGGER().info("Received level up packet without the required EXP needed to level up, skipping packet...");
                     return;
                 }
 
-                int requiredPoints = requiredPoints(aptitudeLevel);
+                int previousLevel = aptitudeLevel;
+                int nextLevel = Math.min(previousLevel + 1, levelCap);
+                if (!LevelLockAPI.canReachLevel(player, aptitudePlayer.getName(), nextLevel)) {
+                    return;
+                }
+                if (KubeJSIntegration.isModLoaded()) {
+                    boolean cancelled = new KubeJSIntegration().postLevelUpServerEvent(player, aptitudePlayer, previousLevel, nextLevel);
+                    if (cancelled) {
+                        return;
+                    }
+                }
 
                 capability.addAptitudeLevel(aptitudePlayer, 1);
+                int newLevel = capability.getAptitudeLevel(aptitudePlayer);
                 SyncAptitudeCapabilityCP.send(player);
                 if (!player.isCreative()) {
                     addPlayerXP(player, requiredPoints * -1);
                 }
+                SkillChangeAPI.handleLevelUp(player, aptitudePlayer, previousLevel, newLevel);
             }
         });
         context.setPacketHandled(true);
@@ -92,12 +120,34 @@ public class AptitudeLevelUpSP {
         }
     }
 
+    public static int requiredPoints(int aptitudeLevel, int baseLevelCost) {
+        return getExperienceForLevel(aptitudeLevel + baseLevelCost - 1);
+    }
+
     public static int requiredPoints(int aptitudeLevel) {
-        return getExperienceForLevel(aptitudeLevel + HandlerCommonConfig.HANDLER.instance().aptitudeFirstCostLevel - 1);
+        return requiredPoints(aptitudeLevel, HandlerCommonConfig.HANDLER.instance().aptitudeFirstCostLevel);
+    }
+
+    public static int requiredPoints(int aptitudeLevel, Aptitude aptitude) {
+        if (aptitude == null) {
+            return requiredPoints(aptitudeLevel);
+        }
+        return aptitude.getLevelUpPointCost(aptitudeLevel);
+    }
+
+    public static int requiredExperienceLevels(int aptitudeLevel, int baseLevelCost) {
+        return aptitudeLevel + baseLevelCost - 1;
     }
 
     public static int requiredExperienceLevels(int aptitudeLevel) {
-        return aptitudeLevel + HandlerCommonConfig.HANDLER.instance().aptitudeFirstCostLevel - 1;
+        return requiredExperienceLevels(aptitudeLevel, HandlerCommonConfig.HANDLER.instance().aptitudeFirstCostLevel);
+    }
+
+    public static int requiredExperienceLevels(int aptitudeLevel, Aptitude aptitude) {
+        if (aptitude == null) {
+            return requiredExperienceLevels(aptitudeLevel);
+        }
+        return aptitude.getLevelUpExperienceLevels(aptitudeLevel);
     }
 
     public static int getExperienceForLevel(int level) {

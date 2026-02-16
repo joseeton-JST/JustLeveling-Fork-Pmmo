@@ -3,7 +3,6 @@ package com.seniors.justlevelingfork.network.packet.client;
 import com.seniors.justlevelingfork.JustLevelingFork;
 import com.seniors.justlevelingfork.config.models.LockItem;
 import com.seniors.justlevelingfork.handler.HandlerAptitude;
-import com.seniors.justlevelingfork.handler.HandlerLockItemsConfig;
 import com.seniors.justlevelingfork.network.ServerNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -63,7 +62,7 @@ public class ConfigSyncCP {
     public static void sendToPlayer(Player player) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         List<String> stringList = new ArrayList<>();
-        for (LockItem lockItem : HandlerLockItemsConfig.HANDLER.instance().lockItemList) {
+        for (LockItem lockItem : HandlerAptitude.getResolvedLockItems()) {
             stringList.add(lockItem.toString());
         }
         try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
@@ -73,5 +72,15 @@ public class ConfigSyncCP {
         }
 
         ServerNetworking.sendToPlayer(new ConfigSyncCP(byteArrayOutputStream.toByteArray()), (ServerPlayer) player);
+    }
+
+    public static void sendToAllPlayers() {
+        if (JustLevelingFork.server == null) {
+            return;
+        }
+
+        for (ServerPlayer serverPlayer : JustLevelingFork.server.getPlayerList().getPlayers()) {
+            sendToPlayer(serverPlayer);
+        }
     }
 }

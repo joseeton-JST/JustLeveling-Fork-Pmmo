@@ -33,7 +33,8 @@ public class RegistryAttributes {
         serverPlayer.getCapability(RegistryCapabilities.APTITUDE).ifPresent(aptitudeCapability -> {
             for (int i = 0; i < RegistryPassives.PASSIVES_REGISTRY.get().getValues().stream().toList().size(); i++) {
                 Passive passive = RegistryPassives.PASSIVES_REGISTRY.get().getValues().stream().toList().get(i);
-                (new registerAttribute(serverPlayer, passive.attribute, passive.getValue() / passive.levelsRequired.length * passive.getLevel(serverPlayer), UUID.fromString(passive.attributeUuid))).amplifyAttribute(true);
+                boolean aptitudeEnabled = passive.aptitude.isEnabled();
+                (new registerAttribute(serverPlayer, passive.attribute, passive.getValue() / passive.levelsRequired.length * passive.getLevel(serverPlayer), UUID.fromString(passive.attributeUuid))).amplifyAttribute(aptitudeEnabled);
             }
         });
     }

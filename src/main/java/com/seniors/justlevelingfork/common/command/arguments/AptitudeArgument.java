@@ -7,16 +7,19 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.seniors.justlevelingfork.registry.RegistryAptitudes;
+import com.seniors.justlevelingfork.registry.aptitude.Aptitude;
 import net.minecraft.network.chat.Component;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public class AptitudeArgument implements ArgumentType<String> {
 
-    private static final List<String> EXAMPLES = Arrays.asList("Strength", "Dexterity", "Intelligence", "Magic", "Constitution", "Defense", "Building", "Luck");
+    private static final List<String> FALLBACK_EXAMPLES = List.of("strength", "dexterity", "intelligence");
     public static final DynamicCommandExceptionType ERROR_UNKNOWN_TITLE;
 
     static {
@@ -29,22 +32,41 @@ public class AptitudeArgument implements ArgumentType<String> {
 
     @Override
     public String parse(StringReader reader) throws CommandSyntaxException {
-        return reader.readString();
+        String aptitudeInput = reader.readString();
+        Aptitude aptitude = RegistryAptitudes.getAptitude(aptitudeInput);
+        if (aptitude == null) {
+            throw ERROR_UNKNOWN_TITLE.create(aptitudeInput);
+        }
+        return aptitude.getName();
     }
 
     @Override
     public <S> CompletableFuture<Suggestions> listSuggestions(final CommandContext<S> context, final SuggestionsBuilder builder) {
-        if(builder.getRemaining().isEmpty()){
-            EXAMPLES.forEach(builder::suggest);
-            return builder.buildFuture();
+        String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
+        for (String aptitudeName : getDynamicExamples()) {
+            if (remaining.isEmpty() || aptitudeName.toLowerCase(Locale.ROOT).contains(remaining)) {
+                builder.suggest(aptitudeName);
+            }
         }
-
-        EXAMPLES.stream().filter(str -> str.toLowerCase().contains(builder.getRemaining().toLowerCase())).forEach(builder::suggest);
         return builder.buildFuture();
     }
 
     @Override
     public Collection<String> getExamples() {
-        return EXAMPLES;
+        return getDynamicExamples();
+    }
+
+    private static List<String> getDynamicExamples() {
+        try {
+            List<String> examples = new ArrayList<>();
+            for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues()) {
+                examples.add(aptitude.getName());
+            }
+            if (!examples.isEmpty()) {
+                return examples;
+            }
+        } catch (Exception ignored) {
+        }
+        return FALLBACK_EXAMPLES;
     }
 }

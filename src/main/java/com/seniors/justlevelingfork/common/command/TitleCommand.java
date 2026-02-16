@@ -35,14 +35,22 @@ public class TitleCommand {
         if (player != null && title != null) {
             if (set) {
                 title.setRequirement(player, true);
-                source.getSource().sendSuccess(() -> Component.translatable("commands.message.title.set", player.getName().copy().withStyle(ChatFormatting.BOLD), Component.translatable(title.getKey()).withStyle(ChatFormatting.BOLD)), false);
+                source.getSource().sendSuccess(() -> Component.translatable(
+                        "commands.message.title.set",
+                        player.getName().copy().withStyle(ChatFormatting.BOLD),
+                        title.getDisplayNameComponentOrFallback().copy().withStyle(ChatFormatting.BOLD)
+                ), false);
 
             } else {
 
                 AptitudeCapability capability = AptitudeCapability.get(player);
                 capability.setUnlockTitle(title, false);
                 SyncAptitudeCapabilityCP.send(player);
-                source.getSource().sendSuccess(() -> Component.translatable("commands.message.title.unset", player.getName().copy().withStyle(ChatFormatting.BOLD), Component.translatable(title.getKey()).withStyle(ChatFormatting.BOLD)), false);
+                source.getSource().sendSuccess(() -> Component.translatable(
+                        "commands.message.title.unset",
+                        player.getName().copy().withStyle(ChatFormatting.BOLD),
+                        title.getDisplayNameComponentOrFallback().copy().withStyle(ChatFormatting.BOLD)
+                ), false);
             }
 
 

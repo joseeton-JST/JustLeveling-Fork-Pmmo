@@ -46,6 +46,7 @@ public class RegisterItem {
             Optional<LockItem> optionalLockItem = HandlerLockItemsConfig.HANDLER.instance().lockItemList.stream().filter(c -> c.Item.equalsIgnoreCase(location.toString())).findFirst();
             if (optionalLockItem.isPresent()) {
                 LockItem lockItem = optionalLockItem.get();
+                lockItem.Aptitudes = new ArrayList<>(lockItem.Aptitudes);
                 int index = HandlerLockItemsConfig.HANDLER.instance().lockItemList.indexOf(lockItem);
                 if (level < 1) {
                     if (lockItem.Aptitudes.size() <= 1) {
@@ -53,7 +54,7 @@ public class RegisterItem {
                         player.sendSystemMessage(Component.literal("Removing item from lockItemList..."));
                     }
                     else {
-                        Optional<LockItem.Aptitude> aptitude = lockItem.Aptitudes.stream().filter(c -> c.Aptitude.toString().equalsIgnoreCase(aptitudeName)).findFirst();
+                        Optional<LockItem.Aptitude> aptitude = lockItem.Aptitudes.stream().filter(c -> c.Aptitude.equalsIgnoreCase(aptitudeName)).findFirst();
                         aptitude.ifPresent(value -> lockItem.Aptitudes.remove(value));
 
                         HandlerLockItemsConfig.HANDLER.instance().lockItemList.set(index, lockItem);
@@ -64,7 +65,7 @@ public class RegisterItem {
                     return Command.SINGLE_SUCCESS;
                 }
 
-                lockItem.Aptitudes.stream().filter(c -> c.Aptitude.toString().equalsIgnoreCase(aptitudeName)).findFirst().ifPresent(value -> lockItem.Aptitudes.remove(value));
+                lockItem.Aptitudes.stream().filter(c -> c.Aptitude.equalsIgnoreCase(aptitudeName)).findFirst().ifPresent(value -> lockItem.Aptitudes.remove(value));
 
                 lockItem.Aptitudes.add(new LockItem.Aptitude(aptitudeName, level));
 

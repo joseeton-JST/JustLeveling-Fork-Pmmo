@@ -12,19 +12,23 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraftforge.common.ForgeMod;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.RegisterEvent;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.IForgeRegistry;
 import net.minecraftforge.registries.RegistryBuilder;
 import net.minecraftforge.registries.RegistryObject;
 
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 
 public class RegistryPassives {
     public static final ResourceKey<Registry<Passive>> PASSIVES_KEY = ResourceKey.createRegistryKey(new ResourceLocation(JustLevelingFork.MOD_ID, "passives"));
     public static final DeferredRegister<Passive> PASSIVES = DeferredRegister.create(PASSIVES_KEY, JustLevelingFork.MOD_ID);
     public static final Supplier<IForgeRegistry<Passive>> PASSIVES_REGISTRY = PASSIVES.makeRegistry(() -> new RegistryBuilder<Passive>().disableSaving());
+    private static final Map<ResourceLocation, Passive> PENDING_CUSTOM = new LinkedHashMap<>();
 
     public static final RegistryObject<Passive> ATTACK_DAMAGE = PASSIVES.register("attack_damage", () -> register("attack_damage", RegistryAptitudes.STRENGTH.get(), HandlerResources.create("textures/skill/strength/passive_attack_damage.png"), Attributes.ATTACK_DAMAGE, "96a891fe-5919-418d-8205-f50464391500", HandlerCommonConfig.HANDLER.instance().attackDamageValue, HandlerCommonConfig.HANDLER.instance().attackPassiveLevels));
 
@@ -65,10 +69,83 @@ public class RegistryPassives {
 
     public static void load(IEventBus eventBus) {
         PASSIVES.register(eventBus);
+        eventBus.addListener((RegisterEvent event) -> event.register(PASSIVES_KEY, helper ->
+                PENDING_CUSTOM.forEach(helper::register)));
     }
 
-    public static Passive getPassive(String passiveName) {
-        return PASSIVES_REGISTRY.get().getValues().stream().collect(Collectors.toMap(Passive::getName, Passive::get)).get(passiveName);
+    public static void addPendingPassive(String name, Passive passive) {
+        if (name == null || passive == null) {
+            return;
+        }
+
+        addPendingPassive(new ResourceLocation(JustLevelingFork.MOD_ID, name.toLowerCase(Locale.ROOT)), passive);
+    }
+
+    public static void addPendingPassive(ResourceLocation id, Passive passive) {
+        if (id == null || passive == null) {
+            return;
+        }
+
+        PENDING_CUSTOM.put(id, passive);
+    }
+
+    public static Passive getPassive(String passiveNameOrId) {
+        if (passiveNameOrId == null || passiveNameOrId.isBlank()) {
+            return null;
+        }
+
+        ResourceLocation parsed = parseResourceLocation(passiveNameOrId);
+        IForgeRegistry<Passive> registry = PASSIVES_REGISTRY.get();
+
+        if (parsed != null) {
+            Passive pendingById = PENDING_CUSTOM.get(parsed);
+            if (pendingById != null) {
+                return pendingById;
+            }
+            if (registry != null) {
+                Passive registeredById = registry.getValue(parsed);
+                if (registeredById != null) {
+                    return registeredById;
+                }
+            }
+        }
+
+        String normalizedPath = parsed != null
+                ? parsed.getPath().toLowerCase(Locale.ROOT)
+                : passiveNameOrId.toLowerCase(Locale.ROOT);
+
+        Passive pendingByPath = PENDING_CUSTOM.entrySet().stream()
+                .filter(entry -> entry.getKey().getPath().equalsIgnoreCase(normalizedPath))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+        if (pendingByPath != null) {
+            return pendingByPath;
+        }
+
+        if (registry == null) {
+            return null;
+        }
+
+        return registry.getValues().stream()
+                .filter(passive -> passive.getName().equalsIgnoreCase(normalizedPath))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static Map<ResourceLocation, Passive> getPendingCustomSnapshot() {
+        return Map.copyOf(PENDING_CUSTOM);
+    }
+
+    private static ResourceLocation parseResourceLocation(String raw) {
+        String normalized = raw.toLowerCase(Locale.ROOT);
+        try {
+            return normalized.contains(":")
+                    ? new ResourceLocation(normalized)
+                    : new ResourceLocation(JustLevelingFork.MOD_ID, normalized);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 }
 

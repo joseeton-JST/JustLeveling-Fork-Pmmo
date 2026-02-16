@@ -6,6 +6,7 @@ import com.seniors.justlevelingfork.common.capability.LazyAptitudeCapability;
 import com.seniors.justlevelingfork.common.command.*;
 import com.seniors.justlevelingfork.handler.HandlerCommonConfig;
 import com.seniors.justlevelingfork.integration.TetraIntegration;
+import com.seniors.justlevelingfork.kubejs.TransmutationAPI;
 import com.seniors.justlevelingfork.network.packet.client.*;
 import com.seniors.justlevelingfork.network.packet.common.CounterAttackSP;
 import com.seniors.justlevelingfork.registry.skills.ConvergenceSkill;
@@ -73,12 +74,12 @@ public class RegistryCommonEvents {
             AptitudeCapability capability = AptitudeCapability.get(serverPlayer);
             if(capability == null) return;
             Title titleKey = RegistryTitles.getTitle(capability.getPlayerTitle());
-            String title = (titleKey != null) ? Component.translatable(RegistryTitles.getTitle(capability.getPlayerTitle()).getKey()).getString() : "";
+            String title = (titleKey != null)
+                    ? titleKey.getDisplayNameOrFallback()
+                    : RegistryTitles.TITLELESS.get().getDisplayNameOrFallback();
 
             event.setDisplayname(Component.literal(String.format("[%s] %s",
-                    title.isEmpty()
-                            ? Component.translatable(RegistryTitles.TITLELESS.get().getKey()).getString()
-                            : title,
+                    title.isEmpty() ? RegistryTitles.TITLELESS.get().getDisplayNameOrFallback() : title,
                     event.getDisplayname().getString())));
         }
     }
@@ -204,8 +205,16 @@ public class RegistryCommonEvents {
             }
         }
 
-        if ((!provider.canUseItem(player, location) || !provider.canUseBlock(player, block))) {
+        if ((!provider.canUseItem(player, item) || !provider.canUseBlock(player, block))) {
             event.setCanceled(true);
+            return;
+        }
+
+        if (!event.getLevel().isClientSide()) {
+            ItemStack handStack = player.getItemInHand(event.getHand());
+            if (TransmutationAPI.tryTransmute(player, event.getLevel(), event.getPos(), handStack)) {
+                event.setCanceled(true);
+            }
         }
     }
 
@@ -233,7 +242,7 @@ public class RegistryCommonEvents {
             }
         }
 
-        if ((!provider.canUseItem(player, location) || !provider.canUseBlock(player, block))) {
+        if ((!provider.canUseItem(player, item) || !provider.canUseBlock(player, block))) {
             event.setCanceled(true);
         }
     }
@@ -261,7 +270,7 @@ public class RegistryCommonEvents {
             }
         }
 
-        if (!provider.canUseItem(player, location)) {
+        if (!provider.canUseItem(player, item)) {
             event.setCanceled(true);
         }
     }
@@ -290,7 +299,7 @@ public class RegistryCommonEvents {
             }
         }
 
-        if (!provider.canUseEntity(player, entity) || !provider.canUseItem(player, location)) {
+        if (!provider.canUseEntity(player, entity) || !provider.canUseItem(player, item)) {
             event.setCanceled(true);
         }
     }

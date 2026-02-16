@@ -51,7 +51,13 @@ public class OverlayTitleGui {
                 matrixStack.pose().scale(scale1, scale1, 1.0F);
                 int xOff1 = (int) (this.client.getWindow().getGuiScaledWidth() / scale1 / 2.0F);
                 int yOff1 = (int) (this.client.getWindow().getGuiScaledHeight() / scale1 / 4.0F);
-                Utils.drawCenterWithShadow(matrixStack, Component.translatable("overlay.title.format", Component.translatable(getTitle.getKey()).withStyle(ChatFormatting.BOLD)), xOff1, yOff1, Color.WHITE.getRGB());
+                Utils.drawCenterWithShadow(
+                        matrixStack,
+                        Component.translatable("overlay.title.format", getTitle.getDisplayNameComponentOrFallback().copy().withStyle(ChatFormatting.BOLD)),
+                        xOff1,
+                        yOff1,
+                        Color.WHITE.getRGB()
+                );
                 matrixStack.pose().popPose();
                 if (showTicks == 0) {
                     list.dequeue();

@@ -17,7 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 public class DrawTabs {
-    public static final ResourceLocation TEXTURE = new ResourceLocation(JustLevelingFork.MOD_ID, "textures/gui/container/tabs.png");
+    public static final ResourceLocation TEXTURE = new ResourceLocation(JustLevelingFork.MOD_ID, "textures/gui/container/tabs_left.png");
     public static final Minecraft client = Minecraft.getInstance();
     public static ArrayList<Tabs> tabList = new ArrayList<>();
     public static boolean isMouseCheck = false;
@@ -31,10 +31,12 @@ public class DrawTabs {
             tabList.add(new Tabs("inventory", Utils.playerHead(), new InventoryScreen(client.player), screen instanceof InventoryScreen, Component.translatable("container.inventory")));
             tabList.add(new Tabs("leveling", RegistryItems.LEVELING_BOOK.get().getDefaultInstance(), new JustLevelingScreen(), screen instanceof JustLevelingScreen, Component.translatable("screen.aptitude.title")));
         }
+        int guiLeft = (client.getWindow().getGuiScaledWidth() - textureWidth) / 2 + recipe;
+        int guiTop = (client.getWindow().getGuiScaledHeight() - textureHeight) / 2;
         for (int i = 0; i < tabList.size(); i++) {
             Tabs type = tabList.get(i);
-            int x = (client.getWindow().getGuiScaledWidth() - textureWidth) / 2 + i * 27 + recipe;
-            int y = (client.getWindow().getGuiScaledHeight() - textureHeight) / 2 - 28;
+            int x = guiLeft - 26;
+            int y = guiTop + i * 28;
             renderWidget(matrixStack, type, x, y, mouseX, mouseY);
         }
     }

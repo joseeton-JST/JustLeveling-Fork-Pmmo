@@ -13,12 +13,14 @@ public class HandlerConfigClient {
     public static final ForgeConfigSpec.BooleanValue showLuckyDropSkillOverlay;
     public static final ForgeConfigSpec.BooleanValue showSkillModName;
     public static final ForgeConfigSpec.BooleanValue showTitleModName;
+    public static final ForgeConfigSpec.BooleanValue showLockedTitles;
     public static final ForgeConfigSpec.EnumValue<SortPassives> sortPassive;
     public static final ForgeConfigSpec.EnumValue<SortSkills> sortSkill;
     public static boolean defaultShowCriticalRollSkillOverlay = true;
     public static boolean defaultShowLuckDropSkillOverlay = true;
     public static boolean defaultShowSkillModName = false;
     public static boolean defaultShowTitleModName = false;
+    public static boolean defaultShowLockedTitles = false;
     public static SortPassives defaultSortPassive = SortPassives.ByName;
     public static SortSkills defaultSortSkill = SortSkills.ByLevel;
 
@@ -28,6 +30,7 @@ public class HandlerConfigClient {
         showLuckyDropSkillOverlay = CONFIG.define("showLuckyDropSkillOverlay", defaultShowLuckDropSkillOverlay);
         showSkillModName = CONFIG.define("showSkillModName", defaultShowSkillModName);
         showTitleModName = CONFIG.define("showTitleModName", defaultShowTitleModName);
+        showLockedTitles = CONFIG.define("showLockedTitles", defaultShowLockedTitles);
         sortPassive = CONFIG.defineEnum("sortPassive", defaultSortPassive);
         sortSkill = CONFIG.defineEnum("sortSkill", defaultSortSkill);
         CONFIG.pop();

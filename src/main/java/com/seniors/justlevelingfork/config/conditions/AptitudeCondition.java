@@ -1,11 +1,10 @@
 package com.seniors.justlevelingfork.config.conditions;
 
 import com.seniors.justlevelingfork.common.capability.AptitudeCapability;
-import com.seniors.justlevelingfork.config.models.EAptitude;
 import com.seniors.justlevelingfork.config.models.TitleModel;
 import com.seniors.justlevelingfork.registry.RegistryAptitudes;
+import com.seniors.justlevelingfork.registry.aptitude.Aptitude;
 import net.minecraft.server.level.ServerPlayer;
-import org.apache.commons.lang3.StringUtils;
 
 public class AptitudeCondition extends ConditionImpl<Integer> {
 
@@ -15,8 +14,12 @@ public class AptitudeCondition extends ConditionImpl<Integer> {
 
     @Override
     public void ProcessVariable(String value, ServerPlayer serverPlayer) {
-        EAptitude aptitude = EAptitude.valueOf(StringUtils.capitalize(value));
-        int aptitudeLevel = AptitudeCapability.get(serverPlayer).getAptitudeLevel(RegistryAptitudes.getAptitude(aptitude.toString()));
+        Aptitude aptitude = RegistryAptitudes.getAptitude(value.toLowerCase());
+        if (aptitude == null) {
+            setProcessedValue(0);
+            return;
+        }
+        int aptitudeLevel = AptitudeCapability.get(serverPlayer).getAptitudeLevel(aptitude);
 
         setProcessedValue(aptitudeLevel);
     }

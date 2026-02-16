@@ -7,4 +7,5 @@ public interface CustomEvents {
     EventGroup GROUP = EventGroup.of("JLForkEvents");
 
     EventHandler APTITUDE_LEVELUP = GROUP.client("aptitudeLevelUp", () -> LevelUpEvent.class);
+    EventHandler APTITUDE_LEVELUP_SERVER = GROUP.server("aptitudeLevelUpServer", () -> LevelUpEvent.class);
 }

@@ -1,37 +1,48 @@
-# JustLeveling Fork
-This repo is a fork of the [JustLeveling](https://www.curseforge.com/minecraft/mc-mods/just-leveling) mod for minecraft forge 1.20.1
+﻿# JustLeveling Fork PMMO
+`JustLeveling Fork PMMO` es una evolucion de `JustLeveling-Fork` para Forge 1.20.1, orientada a modpacks y servidores que necesitan un sistema de progresion mas configurable, mas scriptable y mas facil de mantener a largo plazo.
 
-The idea behind this fork is fixing some bugs, performance issues and allow other persons to contribute onto it, so we can get a good mod (:
+En lugar de ser solo una continuacion tecnica del fork base, este proyecto prioriza una identidad clara: convertir `aptitudes`, `skills`, `passives` y `titles` en una capa de gameplay que puedas disenar como parte del pack.
 
-[![](https://dcbadge.limes.pink/api/server/https://discord.gg/6c6cDU2mKj)](https://discord.gg/6c6cDU2mKj)
+## Que hace diferente a este fork
+- Enfoque pack-dev first: el sistema esta pensado para disenar progresion, no solo para usar configuracion estatica.
+- Integracion KubeJS como superficie publica principal para contenido, reglas y control runtime.
+- Filosofia `server-authoritative`: se refuerza consistencia entre GUI, logica de servidor, comandos y scripting.
+- Modelo moderno sobre 1.20.1: conserva la estructura de JustLeveling, pero la adapta a necesidades actuales de packs.
+- Documentacion tecnica orientada a uso real en packs, con estilo legado para facilitar migracion mental desde 1.12.2.
 
-## Download
-[**CurseForge Page**](https://www.curseforge.com/minecraft/mc-mods/justleveling-fork)<br>
-[**Modrinth Page**](https://modrinth.com/mod/justleveling-fork)
+## En que se enfoca el mod
+- Progresion por aptitudes con identidad propia.
+- Skills y passives como desbloqueos de build.
+- Titles como capa de meta-progresion visible.
+- Locks y condiciones para controlar acceso a contenido.
+- Automatizacion de reglas y eventos desde scripts.
 
-## FAQ
-[Click here.](https://github.com/Senior-S/JustLeveling-Fork/wiki/FAQ)
+## Para quien es este proyecto
+- Pack-devs que necesitan control fino de progresion.
+- Servidores con reglas RPG persistentes.
+- Equipos que quieren iterar rapido sobre balance sin recompilar el mod en cada ajuste.
 
-## Installation
-The mod requires the next libraries:<br>
-[ClothConfig](https://www.curseforge.com/minecraft/mc-mods/cloth-config)<br>
-[Curios API](https://www.curseforge.com/minecraft/mc-mods/curios)<br>
-[YetAnotherConfigLib](https://modrinth.com/mod/yacl/version/3.4.2+1.20.1-forge) (3.4.2 VERSION ONLY! NEW VERSIONS OF THE LIB MIGHT CRASH YOUR GAME)<br>
-If you're using BetterCombat you require the next library:<br>
-[PlayerAnimator](https://modrinth.com/mod/playeranimator)
+## Documentacion
+- Guia principal de scripting y API:
+  - [README_KUBEJS.md](README_KUBEJS.md)
+- FAQ del fork base (referencia general):
+  - [FAQ upstream](https://github.com/Senior-S/JustLeveling-Fork/wiki/FAQ)
 
-Once you have all the libraries installed you can download the latest version for Forge 1.20.1 [**HERE**](https://github.com/Senior-S/JustLeveling-Fork/releases)
+## Instalacion
+Dependencias requeridas:
+- [ClothConfig](https://www.curseforge.com/minecraft/mc-mods/cloth-config)
+- [Curios API](https://www.curseforge.com/minecraft/mc-mods/curios)
+- [YetAnotherConfigLib](https://modrinth.com/mod/yacl/version/3.4.2+1.20.1-forge)
 
-## How to contribute
-If you have ideas for the project you can open a issue [**here**](https://github.com/Senior-S/JustLeveling-Fork/issues).
-If you know how to code feel free to clone the project and do a pull request. ^^
+Dependencia adicional si usas BetterCombat:
+- [PlayerAnimator](https://modrinth.com/mod/playeranimator)
 
-## Why the fork?
-The original mod does have a lot of great features, but sadly it has a lot of performance issues and bugs too, when searching for new versions or news about a future update I found out that it wasn't happening due to the original creator `Dplayend` loosing the source code for the original mod, that's why I took on the task of decompiling the code shipped on the .dll, then fixed performance issues along with some bugs and released it to the public so anyone searching for a new version of this mod can use this.
-Feel free to contribute to it, so we can make this fork a better version of what originally was ^^
+## Enlaces
+- [CurseForge](https://www.curseforge.com/minecraft/mc-mods/justleveling-fork)
+- [Modrinth](https://modrinth.com/mod/justleveling-fork)
+- [Discord](https://discord.gg/6c6cDU2mKj)
 
-Screenshot of last message of the creator in his own discord.
-![Screenshot 2024-07-24 222909](https://github.com/user-attachments/assets/d1b7b079-1a0d-428c-b61b-3e72d79e2f98)
-
-### Credits
-`DPlayend` for originally making the mod.
+## Creditos
+- `DPlayend` por el mod original.
+- `Senior-S` por el fork base 1.20.1.
+- Contribuidores de esta rama por la evolucion orientada a packs y KubeJS.

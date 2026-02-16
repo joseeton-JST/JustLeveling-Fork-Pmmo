@@ -1,7 +1,6 @@
 package com.seniors.justlevelingfork.config.models;
 
 import com.seniors.justlevelingfork.JustLevelingFork;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,7 +11,7 @@ public class LockItem {
 
     public String Item = "minecraft:diamond";
 
-    public List<Aptitude> Aptitudes = List.of(new Aptitude());
+    public List<Aptitude> Aptitudes = new ArrayList<>(List.of(new Aptitude()));
 
     public LockItem() {
     }
@@ -23,7 +22,7 @@ public class LockItem {
 
     public LockItem(String itemName, Aptitude... aptitudes) {
         Item = itemName;
-        Aptitudes = Arrays.stream(aptitudes).toList();
+        Aptitudes = new ArrayList<>(Arrays.asList(aptitudes));
     }
 
     public static LockItem getLockItemFromString(String value, LockItem defaultValue) {
@@ -71,28 +70,23 @@ public class LockItem {
 
     public static class Aptitude {
 
-        public EAptitude Aptitude;
+        public String Aptitude;
 
         public int Level;
 
         public Aptitude(String aptitudeName, int level) {
-            try {
-                Aptitude = EAptitude.valueOf(StringUtils.capitalize(aptitudeName));
-            } catch (IllegalArgumentException e){
-                JustLevelingFork.getLOGGER().info(">> Wrong aptitude name {}", aptitudeName);
-                Aptitude = EAptitude.Strength;
-            }
+            Aptitude = aptitudeName.toLowerCase();
             Level = level;
         }
 
         public Aptitude() {
-            Aptitude = EAptitude.Strength;
+            Aptitude = "strength";
             Level = 2;
         }
 
         @Override
         public String toString() {
-            return String.format("%s:%d", Aptitude.toString(), Level);
+            return String.format("%s:%d", Aptitude, Level);
         }
     }
 }
