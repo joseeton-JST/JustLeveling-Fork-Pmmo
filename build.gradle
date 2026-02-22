@@ -23,9 +23,9 @@ plugins {
 modrinth {
     token = System.getenv("MODRINTH_TOKEN") // Remember to have the MODRINTH_TOKEN environment variable set or else this will fail - just make sure it stays private!
     projectId = "justleveling-fork" // This can be the project ID or the slug. Either will work!
-    versionNumber = "${project.mod_version}" // You don't need to set this manually. Will fail if Modrinth has this version already
+    versionNumber = "${project.addon_mod_version}" // Addon-only release version
     versionType = "release" // This is the default -- can also be `beta` or `alpha`
-    uploadFile = jar // With Loom, this MUST be set to `remapJar` instead of `jar`!
+    uploadFile = file("${buildDir}/libs/${project.addon_mod_id}-${project.addon_mod_version}.jar")
     gameVersions = ["1.20.1"] // Must be an array, even with only one version
     loaders = ["forge"] // Must also be an array - no need to specify this if you're using Loom or ForgeGradle
     dependencies { // A special DSL for creating dependencies
@@ -50,6 +50,69 @@ base {
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+def resolveBase121Jar = {
+    if (project.hasProperty('base121JarPath') && project.property('base121JarPath')?.toString()?.trim()) {
+        return file(project.property('base121JarPath').toString())
+    }
+    if (System.getenv("JLFORK_BASE121_JAR")?.trim()) {
+        return file(System.getenv("JLFORK_BASE121_JAR"))
+    }
+    return file("C:/Users/ASROCK PRO SERIES/curseforge/minecraft/Instances/Modpack 1.20.1/mods/justlevelingfork-1.2.1.jar")
+}
+
+def resolveLegendaryTabsJar = {
+    if (project.hasProperty('legendaryTabsJarPath') && project.property('legendaryTabsJarPath')?.toString()?.trim()) {
+        return file(project.property('legendaryTabsJarPath').toString())
+    }
+    if (System.getenv("JLFORK_LEGENDARYTABS_JAR")?.trim()) {
+        return file(System.getenv("JLFORK_LEGENDARYTABS_JAR"))
+    }
+
+    List<File> searchRoots = [file('run/mods'), file('mods'), file('libs')]
+    List<File> candidates = []
+    searchRoots.findAll { it.exists() }.each { root ->
+        candidates.addAll(fileTree(root) {
+            include 'LegendaryTabs-*.jar'
+            include 'legendarytabs-*.jar'
+            include '*legendarytabs*.jar'
+        }.files.findAll { it.isFile() })
+    }
+    if (candidates.isEmpty()) {
+        return null
+    }
+    return candidates.sort { a, b -> b.lastModified() <=> a.lastModified() }.first()
+}
+
+def requireLegendaryTabsJar = {
+    File legendaryJar = resolveLegendaryTabsJar()
+    if (legendaryJar == null || !legendaryJar.exists()) {
+        throw new GradleException("LegendaryTabs jar not found for addon build. " +
+                "Set -PlegendaryTabsJarPath=<path> or JLFORK_LEGENDARYTABS_JAR, " +
+                "or place LegendaryTabs*.jar in run/mods, mods, or libs.")
+    }
+    return legendaryJar
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDir 'src/generated/resources'
+        }
+    }
+    addon {
+        java {
+            srcDir 'src/addon/java'
+            exclude 'com/joseetoon/justlevellingaddonjs/mixin/MixJustLevelingScreenCreateList.java'
+        }
+        resources {
+            srcDir 'src/addon/resources'
+        }
+        // Addon-first: compile against the external base jar instead of local src/main outputs.
+        compileClasspath += files(resolveBase121Jar()) + configurations.runtimeClasspath
+        runtimeClasspath += output + configurations.runtimeClasspath
+    }
 }
 
 minecraft {
@@ -92,26 +155,36 @@ minecraft {
             // You can set various levels here.
             // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
             property 'forge.logging.console.level', 'debug'
-
-            mods {
-                "${mod_id}" {
-                    source sourceSets.main
-                }
-            }
         }
 
         client {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            property 'forge.enabledGameTestNamespaces', mod_id
+            property 'forge.enabledGameTestNamespaces', addon_mod_id
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+                "${addon_mod_id}" {
+                    source sourceSets.addon
+                }
+            }
         }
 
         server {
-            property 'forge.enabledGameTestNamespaces', mod_id
+            property 'forge.enabledGameTestNamespaces', addon_mod_id
             args '--nogui'
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+                "${addon_mod_id}" {
+                    source sourceSets.addon
+                }
+            }
         }
 
         // This run config launches GameTestServer and runs all registered gametests, then exits.
@@ -119,6 +192,14 @@ minecraft {
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
             property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+                "${addon_mod_id}" {
+                    source sourceSets.addon
+                }
+            }
         }
 
         data {
@@ -132,13 +213,14 @@ minecraft {
 }
 
 mixin {
-    add sourceSets.main, "${mod_id}.refmap.json"
+    // Keep main mixin processing for local userdev runs.
+    add sourceSets.main, "justlevelingfork.refmap.json"
+    config "justlevelingfork.mixins.json"
 
-    config "${mod_id}.mixins.json"
+    // Addon mixin processing.
+    add sourceSets.addon, "justlevellingaddonjs.refmap.json"
+    config "justlevellingaddonjs.mixins.json"
 }
-
-// Include resources generated by data generators.
-sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
     // Cloth Config API
@@ -194,14 +276,17 @@ repositories {
         }
     }
 
-    // L2 Tabs
-    flatDir{
+    // Local fallback folder for optional compile-only jars.
+    flatDir {
         dirs 'libs'
     }
 }
 
 configurations {
     l2libraryBundle
+    addonImplementation.extendsFrom implementation
+    addonRuntimeOnly.extendsFrom runtimeOnly
+    addonAnnotationProcessor.extendsFrom annotationProcessor
 }
 
 dependencies {
@@ -220,10 +305,12 @@ dependencies {
     implementation fg.deobf("maven.modrinth:rhino:${rhino_version}")
     implementation fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
 
-    // L2
     l2libraryBundle("maven.modrinth:l2library:${l2library_version}")
-    compileOnly fg.deobf("maven.modrinth:l2library:${l2library_version}")
-    compileOnly fileTree(layout.buildDirectory.dir("generated/l2tabs")) { include "l2tabs-*.jar" }
+
+    // Required only for compiling the base module classes that still reference L2Tabs types.
+    compileOnly files(layout.buildDirectory.dir("generated/l2tabs-api"))
+    addonCompileOnly files(resolveBase121Jar())
+    addonCompileOnly files({ requireLegendaryTabsJar() })
 
     // ClothConfig implementation (Required by BetterCombat)
     implementation fg.deobf("me.shedaniel.cloth:cloth-config-forge:11.1.118")
@@ -270,6 +357,20 @@ dependencies {
     implementation("org.quiltmc.parsers:gson:0.2.1")
 }
 
+tasks.register('cleanRunBase121FromMods') {
+    group = 'setup'
+    description = 'Removes external justlevelingfork jars from run/mods for stable userdev runs.'
+    doLast {
+        File modsDir = file('run/mods')
+        if (!modsDir.exists()) {
+            return
+        }
+        fileTree(modsDir) {
+            include 'justlevelingfork-*.jar'
+        }.files.each { it.delete() }
+    }
+}
+
 tasks.register('extractL2TabsJar', Copy) {
     dependsOn configurations.l2libraryBundle
     from({
@@ -282,8 +383,454 @@ tasks.register('extractL2TabsJar', Copy) {
     includeEmptyDirs = false
 }
 
-tasks.named('compileJava').configure {
+tasks.register('extractL2TabsApiClasses', Sync) {
     dependsOn tasks.named('extractL2TabsJar')
+    from({
+        fileTree(layout.buildDirectory.dir("generated/l2tabs")) { include "l2tabs-*.jar" }.files.collect { zipTree(it) }
+    }) {
+        include "dev/xkmc/l2tabs/**"
+    }
+    doFirst {
+        def jars = fileTree(layout.buildDirectory.dir("generated/l2tabs")) { include "l2tabs-*.jar" }.files
+        if (jars.isEmpty()) {
+            throw new GradleException("Unable to find extracted l2tabs jar under build/generated/l2tabs")
+        }
+    }
+    into(layout.buildDirectory.dir("generated/l2tabs-api"))
+    includeEmptyDirs = false
+}
+
+tasks.named('compileJava').configure {
+    dependsOn tasks.named('extractL2TabsApiClasses')
+}
+
+tasks.configureEach {
+    if (name == 'runClient' || name == 'runServer') {
+        dependsOn tasks.named('cleanRunBase121FromMods')
+    }
+}
+
+tasks.register('runAddonClient') {
+    group = 'forgegradle runs'
+    description = 'Addon-first client profile in userdev (base loaded from src/main + addon from src/addon).'
+    dependsOn 'runClient'
+}
+
+tasks.register('runAddonServer') {
+    group = 'forgegradle runs'
+    description = 'Addon-first server profile in userdev (base loaded from src/main + addon from src/addon).'
+    dependsOn 'runServer'
+}
+
+def runCommand = { List<String> cmdArgs ->
+    ByteArrayOutputStream stdout = new ByteArrayOutputStream()
+    ByteArrayOutputStream stderr = new ByteArrayOutputStream()
+    def result = exec {
+        commandLine cmdArgs
+        standardOutput = stdout
+        errorOutput = stderr
+        ignoreExitValue = true
+    }
+    return [
+            exit: result.exitValue,
+            out : stdout.toString("UTF-8"),
+            err : stderr.toString("UTF-8"),
+    ]
+}
+
+tasks.register('checkMainMatchesOrigin') {
+    group = 'verification'
+    description = 'Fails if src/main differs from origin/master (addon-first ownership guard).'
+    doLast {
+        def result = runCommand(['git', 'diff', '--name-only', 'origin/master', '--', 'src/main'])
+        if (result.exit != 0) {
+            throw new GradleException("Unable to compare src/main against origin/master.\n${result.err}")
+        }
+
+        String diff = result.out?.trim()
+        if (diff) {
+            throw new GradleException("src/main must stay aligned with origin/master in addon-first mode.\nChanged files:\n${diff}")
+        }
+    }
+}
+
+tasks.register('syncBase121ToRunMods', Copy) {
+    group = 'setup'
+    description = 'Copies justlevelingfork-1.2.1.jar into run/mods for addon-only run profiles.'
+    from({ resolveBase121Jar() })
+    into(file('run/mods'))
+    rename { 'justlevelingfork-1.2.1.jar' }
+    doFirst {
+        File baseJar = resolveBase121Jar()
+        if (!baseJar.exists()) {
+            throw new GradleException("Base 1.2.1 jar not found. Set -Pbase121JarPath or JLFORK_BASE121_JAR.")
+        }
+
+        File modsDir = file('run/mods')
+        modsDir.mkdirs()
+
+        fileTree(modsDir) {
+            include 'justlevelingfork-*.jar'
+        }.files.each { existing ->
+            if (!existing.name.equalsIgnoreCase('justlevelingfork-1.2.1.jar')) {
+                existing.delete()
+            }
+        }
+    }
+}
+
+tasks.register('snapshotBase121Abi') {
+    group = 'verification'
+    description = 'Generates docs/compat/base-1.2.1-abi.md from a real justlevelingfork-1.2.1.jar using javap.'
+    doLast {
+        File baseJar = resolveBase121Jar()
+        if (!baseJar.exists()) {
+            throw new GradleException("Base 1.2.1 jar not found for ABI snapshot. Set -Pbase121JarPath or JLFORK_BASE121_JAR.")
+        }
+
+        List<String> classes = [
+                'com.seniors.justlevelingfork.registry.aptitude.Aptitude',
+                'com.seniors.justlevelingfork.registry.skills.Skill',
+                'com.seniors.justlevelingfork.registry.passive.Passive',
+                'com.seniors.justlevelingfork.registry.title.Title',
+                'com.seniors.justlevelingfork.common.capability.AptitudeCapability',
+                'com.seniors.justlevelingfork.network.packet.common.AptitudeLevelUpSP',
+                'com.seniors.justlevelingfork.handler.HandlerAptitude',
+                'com.seniors.justlevelingfork.registry.RegistryAptitudes',
+                'com.seniors.justlevelingfork.registry.RegistrySkills',
+                'com.seniors.justlevelingfork.registry.RegistryPassives',
+                'com.seniors.justlevelingfork.registry.RegistryTitles',
+        ]
+
+        File outFile = file('docs/compat/base-1.2.1-abi.md')
+        outFile.parentFile.mkdirs()
+
+        StringBuilder builder = new StringBuilder()
+        builder.append("# ABI Snapshot: justlevelingfork-1.2.1\n\n")
+        builder.append("Generated from: `").append(baseJar.absolutePath).append("`\n\n")
+        builder.append("This file is generated by `./gradlew snapshotBase121Abi`.\n\n")
+
+        classes.each { className ->
+            def result = runCommand(['javap', '-classpath', baseJar.absolutePath, '-p', className])
+            if (result.exit != 0) {
+                throw new GradleException("javap failed for ${className} while generating ABI snapshot.\n${result.err}")
+            }
+
+            builder.append("## `").append(className).append("`\n\n")
+            builder.append("```text\n")
+            builder.append(result.out.trim()).append('\n')
+            builder.append("```\n\n")
+        }
+
+        outFile.text = builder.toString()
+    }
+}
+
+tasks.register('checkAddonAgainstBase121Abi') {
+    group = 'verification'
+    description = 'Checks addon bytecode refs against justlevelingfork-1.2.1 ABI and reports to build/tmp/addon_vs_base121_abi.csv'
+    dependsOn tasks.named('compileAddonJava')
+    doLast {
+        File baseJar = resolveBase121Jar()
+        if (!baseJar.exists()) {
+            throw new GradleException("Base 1.2.1 jar not found for ABI check. Set -Pbase121JarPath or JLFORK_BASE121_JAR.")
+        }
+
+        File classesDir = sourceSets.addon.output.classesDirs.files.find { it.exists() }
+        if (classesDir == null) {
+            throw new GradleException("Addon classes directory not found. Run compileAddonJava first.")
+        }
+
+        Set<String> jarClassEntries = new LinkedHashSet<>()
+        def jarList = runCommand(['jar', 'tf', baseJar.absolutePath])
+        if (jarList.exit != 0) {
+            throw new GradleException("Failed to list base jar classes.\n${jarList.err}")
+        }
+        jarList.out.eachLine { line ->
+            if (line.endsWith('.class')) {
+                jarClassEntries.add(line.trim())
+            }
+        }
+
+        Map<String, Map<String, Set<String>>> abiCache = new LinkedHashMap<>()
+        def loadAbi = { String owner ->
+            if (abiCache.containsKey(owner)) {
+                return abiCache.get(owner)
+            }
+
+            String classEntry = owner.replace('.', '/') + '.class'
+            if (!jarClassEntries.contains(classEntry)) {
+                abiCache.put(owner, null)
+                return null
+            }
+
+            def abi = runCommand(['javap', '-classpath', baseJar.absolutePath, '-s', '-p', owner])
+            if (abi.exit != 0) {
+                abiCache.put(owner, null)
+                return null
+            }
+
+            Set<String> methods = new LinkedHashSet<>()
+            Set<String> fields = new LinkedHashSet<>()
+            String currentKind = null
+            String currentName = null
+            String simpleName = owner.substring(owner.lastIndexOf('.') + 1)
+
+            abi.out.eachLine { raw ->
+                String line = raw.trim()
+                if (line.isEmpty()) {
+                    return
+                }
+
+                if (line.startsWith('descriptor:')) {
+                    if (currentKind != null && currentName != null) {
+                        String descriptor = line.substring('descriptor:'.length()).trim()
+                        if (currentKind == 'method') {
+                            methods.add("${currentName}:${descriptor}".toString())
+                        } else if (currentKind == 'field') {
+                            fields.add("${currentName}:${descriptor}".toString())
+                        }
+                    }
+                    currentKind = null
+                    currentName = null
+                    return
+                }
+
+                if (!line.endsWith(';')) {
+                    return
+                }
+                if (line.startsWith('public class') || line.startsWith('class ') || line.startsWith('interface ') || line == '};' || line == '}') {
+                    return
+                }
+
+                if (line.contains('(')) {
+                    int open = line.indexOf('(')
+                    String prefix = line.substring(0, open).trim()
+                    String[] parts = prefix.split(/\s+/)
+                    String methodName = parts[parts.length - 1]
+                    if (methodName == owner || methodName == simpleName || methodName.endsWith("." + simpleName)) {
+                        methodName = '<init>'
+                    }
+                    currentKind = 'method'
+                    currentName = methodName
+                    return
+                }
+
+                String noSemicolon = line.substring(0, line.length() - 1).trim()
+                String[] parts = noSemicolon.split(/\s+/)
+                String fieldName = parts[parts.length - 1]
+                currentKind = 'field'
+                currentName = fieldName
+            }
+
+            Map<String, Set<String>> parsed = [methods: methods, fields: fields]
+            abiCache.put(owner, parsed)
+            return parsed
+        }
+
+        Map<String, Set<String>> allowedMissingMethods = [
+                'com.seniors.justlevelingfork.registry.aptitude.Aptitude'                  : [
+                        'add:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;',
+                        'add:(Ljava/lang/String;Ljava/lang/String;I[Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;',
+                        'addWithId:(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;',
+                        'addWithId:(Ljava/lang/String;Ljava/lang/String;I[Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;',
+                        'addWithId:(Lnet/minecraft/resources/ResourceLocation;Ljava/lang/String;[Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;',
+                        'addWithId:(Lnet/minecraft/resources/ResourceLocation;Ljava/lang/String;I[Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;',
+                        'getByName:(Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;',
+                        'getLevelCap:()I',
+                        'setLevelCap:(I)V',
+                        'getBaseLevelCost:()I',
+                        'setBaseLevelCost:(I)V',
+                        'getSkillPointInterval:()I',
+                        'setSkillPointInterval:(I)V',
+                        'getLevelStaggering:()[Ljava/lang/String;',
+                        'setLevelStaggering:([Ljava/lang/String;)V',
+                        'getDisplayNameOrFallback:()Ljava/lang/String;',
+                        'setDisplayNameOverride:(Ljava/lang/String;)V',
+                        'getDisplayNameOverride:()Ljava/lang/String;',
+                        'isEnabled:()Z',
+                        'setEnabled:(Z)V',
+                        'isHidden:()Z',
+                        'setHidden:(Z)V',
+                        'setBackground:(Lnet/minecraft/resources/ResourceLocation;)V',
+                        'setBackgroundTexture:(Ljava/lang/String;)V',
+                        'getBackgroundRepeat:()I',
+                        'setBackgroundRepeat:(I)V',
+                        'setLockedTextures:([Ljava/lang/String;)V',
+                        'setRankIcon:(ILjava/lang/String;)V',
+                        'setRankIcon:(ILnet/minecraft/resources/ResourceLocation;)V',
+                        'removeRankIcon:(I)V',
+                        'getAbbreviationOrFallback:()Ljava/lang/String;',
+                        'getLevelUpExperienceLevels:(I)I',
+                        'getLevelUpPointCost:(I)I',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.registry.skills.Skill'                       : [
+                        'addWithId:(Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;[Lcom/seniors/justlevelingfork/client/core/Value;)Lcom/seniors/justlevelingfork/registry/skills/Skill;',
+                        'addWithId:(Lnet/minecraft/resources/ResourceLocation;Ljava/lang/String;ILjava/lang/String;[Lcom/seniors/justlevelingfork/client/core/Value;)Lcom/seniors/justlevelingfork/registry/skills/Skill;',
+                        'getPointCost:()I',
+                        'setPointCost:(I)V',
+                        'getSpCost:()I',
+                        'setSpCost:(I)V',
+                        'getDisplayNameComponentOrFallback:()Lnet/minecraft/network/chat/Component;',
+                        'getDescriptionComponentOrFallback:()Lnet/minecraft/network/chat/Component;',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.registry.passive.Passive'                    : [
+                        'addByAttributeId:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;[I)Lcom/seniors/justlevelingfork/registry/passive/Passive;',
+                        'addWithId:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lnet/minecraft/world/entity/ai/attributes/Attribute;Ljava/lang/String;Ljava/lang/Object;[I)Lcom/seniors/justlevelingfork/registry/passive/Passive;',
+                        'addWithId:(Lnet/minecraft/resources/ResourceLocation;Ljava/lang/String;Ljava/lang/String;Lnet/minecraft/world/entity/ai/attributes/Attribute;Ljava/lang/String;Ljava/lang/Object;[I)Lcom/seniors/justlevelingfork/registry/passive/Passive;',
+                        'getPointCost:()I',
+                        'setPointCost:(I)V',
+                        'getSpCost:()I',
+                        'setSpCost:(I)V',
+                        'getDisplayNameComponentOrFallback:()Lnet/minecraft/network/chat/Component;',
+                        'getDescriptionComponentOrFallback:()Lnet/minecraft/network/chat/Component;',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.registry.title.Title'                        : [
+                        'add:(Ljava/lang/String;ZZ)Lcom/seniors/justlevelingfork/registry/title/Title;',
+                        'getByName:(Ljava/lang/String;)Lcom/seniors/justlevelingfork/registry/title/Title;',
+                        'getDisplayNameComponentOrFallback:()Lnet/minecraft/network/chat/Component;',
+                        'getDisplayNameOrFallback:()Ljava/lang/String;',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.registry.RegistryAptitudes'                  : [
+                        'addPendingAptitude:(Ljava/lang/String;Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)V',
+                        'addPendingAptitude:(Lnet/minecraft/resources/ResourceLocation;Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)V',
+                        'getNextIndex:()I',
+                        'getPendingAptitudeNames:()Ljava/util/List;',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.registry.RegistrySkills'                     : [
+                        'addPendingSkill:(Ljava/lang/String;Lcom/seniors/justlevelingfork/registry/skills/Skill;)V',
+                        'addPendingSkill:(Lnet/minecraft/resources/ResourceLocation;Lcom/seniors/justlevelingfork/registry/skills/Skill;)V',
+                        'getPendingCustomSnapshot:()Ljava/util/Map;',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.registry.RegistryPassives'                   : [
+                        'addPendingPassive:(Ljava/lang/String;Lcom/seniors/justlevelingfork/registry/passive/Passive;)V',
+                        'addPendingPassive:(Lnet/minecraft/resources/ResourceLocation;Lcom/seniors/justlevelingfork/registry/passive/Passive;)V',
+                        'getPendingCustomSnapshot:()Ljava/util/Map;',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.registry.RegistryTitles'                     : [
+                        'addPendingTitle:(Ljava/lang/String;Lcom/seniors/justlevelingfork/registry/title/Title;)V',
+                        'setKubeJSConditions:(Ljava/lang/String;Ljava/util/List;)V',
+                        'clearKubeJSConditions:(Ljava/lang/String;)V',
+                        'getKubeJSConditionsSnapshot:()Ljava/util/Map;',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.common.capability.AptitudeCapability'        : [
+                        'isSkillUnlocked:(Lcom/seniors/justlevelingfork/registry/skills/Skill;)Z',
+                        'setSkillUnlocked:(Lcom/seniors/justlevelingfork/registry/skills/Skill;Z)V',
+                        'tryUnlockSkill:(Lcom/seniors/justlevelingfork/registry/skills/Skill;)Z',
+                        'getAptitudeSkillPointsTotal:(Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)I',
+                        'getAptitudeSkillPointsSpent:(Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)I',
+                        'getAptitudeSkillPointsAvailable:(Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)I',
+                        'trySpendAptitudePoints:(Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;I)Z',
+                        'refundAptitudePoints:(Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;I)V',
+                        'respecAptitude:(Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)V',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.handler.HandlerAptitude'                     : [
+                        'invalidateCache:()V',
+                ] as Set<String>,
+                'com.seniors.justlevelingfork.network.packet.common.AptitudeLevelUpSP'     : [
+                        'requiredPoints:(ILcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)I',
+                        'requiredExperienceLevels:(ILcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)I',
+                ] as Set<String>,
+        ]
+
+        Set<String> allowedMissingFields = [] as Set<String>
+
+        Set<Map<String, String>> references = new LinkedHashSet<>()
+        fileTree(classesDir).matching { include '**/*.class' }.files.each { classFile ->
+            String rel = classesDir.toPath().relativize(classFile.toPath()).toString()
+                    .replace('\\', '/')
+                    .replace('/', '.')
+            String className = rel.substring(0, rel.length() - '.class'.length())
+            def dump = runCommand(['javap', '-classpath', "${classesDir.absolutePath}${File.pathSeparator}${baseJar.absolutePath}", '-v', className])
+            if (dump.exit != 0) {
+                throw new GradleException("javap -v failed for addon class ${className}.\n${dump.err}")
+            }
+
+            dump.out.eachLine { raw ->
+                String line = raw.trim()
+                if (!line.contains('// com/seniors/justlevelingfork/')) {
+                    return
+                }
+
+                if (line.contains('Methodref') || line.contains('InterfaceMethodref')) {
+                    def m = line =~ /\/\/ (com\/seniors\/justlevelingfork\/[\w\/$]+)\.([\w$<>]+):(\([^\)]*\).+)/
+                    if (m.find()) {
+                        references.add([
+                                kind  : 'method',
+                                owner : m.group(1).replace('/', '.'),
+                                member: "${m.group(2)}:${m.group(3)}".toString(),
+                        ])
+                    }
+                    return
+                }
+
+                if (line.contains('Fieldref')) {
+                    def m = line =~ /\/\/ (com\/seniors\/justlevelingfork\/[\w\/$]+)\.([\w$]+):(.+)/
+                    if (m.find()) {
+                        references.add([
+                                kind  : 'field',
+                                owner : m.group(1).replace('/', '.'),
+                                member: "${m.group(2)}:${m.group(3).trim()}".toString(),
+                        ])
+                    }
+                }
+            }
+        }
+
+        List<String> csvRows = ['kind,owner,member,status']
+        List<Map<String, String>> hardMissing = []
+
+        references.each { ref ->
+            Map<String, Set<String>> abi = loadAbi(ref.owner)
+            if (abi == null) {
+                hardMissing.add(ref)
+                csvRows.add("${ref.kind},${ref.owner},${ref.member},missing_class")
+                return
+            }
+
+            if (ref.kind == 'method') {
+                if (abi.methods.contains(ref.member)) {
+                    return
+                }
+
+                if (allowedMissingMethods.getOrDefault(ref.owner, [] as Set<String>).contains(ref.member)) {
+                    csvRows.add("${ref.kind},${ref.owner},${ref.member},allowed_missing_backport")
+                    return
+                }
+
+                hardMissing.add(ref)
+                csvRows.add("${ref.kind},${ref.owner},${ref.member},missing")
+                return
+            }
+
+            if (ref.kind == 'field') {
+                if (abi.fields.contains(ref.member)) {
+                    return
+                }
+
+                if (allowedMissingFields.contains("${ref.owner}#${ref.member}")) {
+                    csvRows.add("${ref.kind},${ref.owner},${ref.member},allowed_missing_backport")
+                    return
+                }
+
+                hardMissing.add(ref)
+                csvRows.add("${ref.kind},${ref.owner},${ref.member},missing")
+            }
+        }
+
+        File report = file('build/tmp/addon_vs_base121_abi.csv')
+        report.parentFile.mkdirs()
+        report.text = csvRows.join('\n') + '\n'
+
+        if (!hardMissing.isEmpty()) {
+            String details = hardMissing.take(20).collect { "${it.kind} ${it.owner} ${it.member}" }.join('\n')
+            throw new GradleException("ABI check failed against base 1.2.1. Missing references detected.\nSee ${report}\n${details}")
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('checkAddonAgainstBase121Abi')
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -303,7 +850,27 @@ tasks.named('processResources', ProcessResources).configure {
 
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
         expand replaceProperties + [project: project]
-    }}
+    }
+}
+
+tasks.named('processAddonResources', ProcessResources).configure {
+    duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
+    var replaceProperties = [
+            addon_mod_id: addon_mod_id,
+            addon_mod_name: addon_mod_name,
+            addon_mod_version: addon_mod_version,
+            addon_mod_authors: addon_mod_authors,
+            addon_mod_description: addon_mod_description,
+            addon_version: addon_mod_version,
+            base_mod_version: mod_version,
+    ]
+
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml']) {
+        expand replaceProperties + [project: project]
+    }
+}
 
 // Example for how to get properties into the manifest for reading at runtime.
 tasks.named('jar', Jar).configure {
@@ -323,6 +890,46 @@ tasks.named('jar', Jar).configure {
     finalizedBy 'reobfJar'
 }
 
+tasks.register('addonJar', Jar).configure {
+    dependsOn tasks.named('addonClasses')
+    archiveBaseName = addon_mod_id
+    archiveVersion = addon_mod_version
+    from sourceSets.addon.output
+    manifest {
+        attributes([
+                "Specification-Title": addon_mod_id,
+                "Specification-Vendor": addon_mod_authors,
+                "Specification-Version": "1",
+                "Implementation-Title": addon_mod_name,
+                "Implementation-Version": archiveVersion,
+                "Implementation-Vendor": addon_mod_authors,
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    finalizedBy 'reobfAddonJar'
+}
+
+reobf {
+    addonJar {}
+}
+
+tasks.register('buildAddonOnly') {
+    group = 'build'
+    description = 'Official addon-first build: checks main ownership, ABI and produces addon jar only.'
+    dependsOn tasks.named('checkMainMatchesOrigin')
+    dependsOn tasks.named('compileAddonJava')
+    dependsOn tasks.named('checkAddonAgainstBase121Abi')
+    dependsOn tasks.named('addonJar')
+}
+
+tasks.named('build').configure {
+    setDependsOn([tasks.named('buildAddonOnly')])
+}
+
+tasks.matching { it.name == 'modrinth' }.configureEach {
+    dependsOn tasks.named('addonJar')
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
@@ -339,9 +946,9 @@ tasks.register('publishCurseForge', TaskPublishCurseForge) {
     // Tells CurseForgeGradle to publish the output of the jar task. This will
     // return a UploadArtifact object that can be used to further configure the
     // file.
-    def mainFile = upload('1073400', jar)
+    def mainFile = upload('1073400', tasks.named('addonJar').get())
     mainFile.releaseType = "release"
-    mainFile.displayName = "JLFork-${project.mod_version} ${project.minecraft_version}"
+    mainFile.displayName = "${project.addon_mod_name}-${project.addon_mod_version} ${project.minecraft_version}"
     mainFile.changelog = ""
     mainFile.addModLoader("Forge")
     mainFile.addGameVersion("${project.minecraft_version}")
