@@ -5,6 +5,7 @@ import com.joseetoon.justlevellingaddonjs.kubejs.compat.AptitudeAPI;
 import com.joseetoon.justlevellingaddonjs.kubejs.compat.LegacySkill;
 import com.joseetoon.justlevellingaddonjs.kubejs.compat.PassiveCreator;
 import com.joseetoon.justlevellingaddonjs.kubejs.compat.SkillCreator;
+import com.joseetoon.justlevellingaddonjs.kubejs.compat.TitleCompat;
 import com.joseetoon.justlevellingaddonjs.kubejs.TitleAPI;
 import com.joseetoon.justlevellingaddonjs.kubejs.events.LevelUpEvent;
 import dev.latvian.mods.kubejs.script.BindingsEvent;
@@ -22,6 +23,7 @@ public class MixKubeJSPluginBindings {
         event.add("AbilityCreator", AbilityCreator.class);
         event.add("PassiveCreator", PassiveCreator.class);
         event.add("LegacySkill", LegacySkill.class);
+        event.add("Title", TitleCompat.class);
         event.add("TitleAPI", TitleAPI.class);
         event.add("TitleComparator", TitleAPI.Comparator.class);
     }

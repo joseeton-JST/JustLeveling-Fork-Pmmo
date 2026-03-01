@@ -48,13 +48,13 @@ public abstract class MixRegistryPassivesBackport {
         if (parsed != null) {
             Passive pendingById = BackportRegistryState.findPendingPassive(parsed, null);
             if (pendingById != null) {
-                cir.setReturnValue(pendingById);
+                cir.setReturnValue(BackportRegistryState.isPassiveBlockedByDeletedAptitude(pendingById) ? null : pendingById);
                 return;
             }
             if (registry != null) {
                 Passive registeredById = registry.getValue(parsed);
                 if (registeredById != null) {
-                    cir.setReturnValue(registeredById);
+                    cir.setReturnValue(BackportRegistryState.isPassiveBlockedByDeletedAptitude(registeredById) ? null : registeredById);
                     return;
                 }
             }
@@ -66,7 +66,7 @@ public abstract class MixRegistryPassivesBackport {
 
         Passive pendingByPath = BackportRegistryState.findPendingPassive(parsed, normalizedPath);
         if (pendingByPath != null) {
-            cir.setReturnValue(pendingByPath);
+            cir.setReturnValue(BackportRegistryState.isPassiveBlockedByDeletedAptitude(pendingByPath) ? null : pendingByPath);
             return;
         }
 
@@ -76,7 +76,8 @@ public abstract class MixRegistryPassivesBackport {
         }
 
         Passive result = registry.getValues().stream()
-                .filter(passive -> passive.getName().equalsIgnoreCase(normalizedPath))
+                .filter(passive -> passive.getName().equalsIgnoreCase(normalizedPath)
+                        && !BackportRegistryState.isPassiveBlockedByDeletedAptitude(passive))
                 .findFirst()
                 .orElse(null);
         cir.setReturnValue(result);

@@ -1,5 +1,6 @@
 package com.joseetoon.justlevellingaddonjs.mixin;
 
+import com.joseetoon.justlevellingaddonjs.compat.base121.BackportRegistryState;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.seniors.justlevelingfork.client.core.Utils;
 import com.seniors.justlevelingfork.client.screen.JustLevelingScreen;
@@ -176,7 +177,10 @@ public abstract class MixJustLevelingScreenCreateList {
 
             if (insideAptitudes) {
                 List<Aptitude> aptitudeList = new ArrayList<>(RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream()
-                        .filter(aptitude -> aptitude.isEnabled() && !aptitude.isHidden() && VisibilityLockAPI.isVisible(client.player, aptitude.getName()))
+                        .filter(aptitude -> aptitude.isEnabled()
+                                && !aptitude.isHidden()
+                                && !BackportRegistryState.isAptitudeDeleted(aptitude.getName())
+                                && VisibilityLockAPI.isVisible(client.player, aptitude.getName()))
                         .toList());
                 int totalRows = (aptitudeList.size() + APTITUDE_COLUMNS - 1) / APTITUDE_COLUMNS;
                 int maxScrollRows = Math.max(0, totalRows - APTITUDE_VISIBLE_ROWS);
@@ -201,7 +205,10 @@ public abstract class MixJustLevelingScreenCreateList {
 
     private static boolean hasAptitudeOverflow(net.minecraft.world.entity.player.Player player) {
         List<Aptitude> aptitudeList = new ArrayList<>(RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream()
-                .filter(aptitude -> aptitude.isEnabled() && !aptitude.isHidden() && VisibilityLockAPI.isVisible(player, aptitude.getName()))
+                .filter(aptitude -> aptitude.isEnabled()
+                        && !aptitude.isHidden()
+                        && !BackportRegistryState.isAptitudeDeleted(aptitude.getName())
+                        && VisibilityLockAPI.isVisible(player, aptitude.getName()))
                 .toList());
         int totalRows = (aptitudeList.size() + APTITUDE_COLUMNS - 1) / APTITUDE_COLUMNS;
         return totalRows > APTITUDE_VISIBLE_ROWS;

@@ -2,6 +2,7 @@ package com.joseetoon.justlevellingaddonjs.mixin;
 
 import com.joseetoon.justlevellingaddonjs.compat.AptitudeCompat;
 import com.joseetoon.justlevellingaddonjs.compat.base121.Base121Bridge;
+import com.joseetoon.justlevellingaddonjs.compat.base121.BackportRegistryState;
 import com.joseetoon.justlevellingaddonjs.config.AddonClientRuntimeSettings;
 import com.joseetoon.justlevellingaddonjs.kubejs.VisibilityLockAPI;
 import com.seniors.justlevelingfork.client.core.Utils;
@@ -32,7 +33,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 @Mixin(value = JustLevelingScreen.class, remap = false)
 public abstract class MixJLScreenAptitudeCompat {
@@ -62,6 +62,10 @@ public abstract class MixJLScreenAptitudeCompat {
     private static final int APTITUDE_SCROLL_HEIGHT = 112;
     @Unique
     private static final int APTITUDE_SCROLL_KNOB_HEIGHT = 15;
+    @Unique
+    private static final String JLFORKADDON_NONE_LABEL = "(none)";
+    @Unique
+    private static final int JLFORKADDON_NONE_COLOR = 0x9AA0A6;
 
     @Shadow
     @Final
@@ -126,6 +130,7 @@ public abstract class MixJLScreenAptitudeCompat {
         List<Aptitude> aptitudeList = new ArrayList<>(RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream()
                 .filter(aptitude -> AptitudeCompat.isEnabled(aptitude)
                         && !AptitudeCompat.isHidden(aptitude)
+                        && !BackportRegistryState.isAptitudeDeleted(AptitudeCompat.getName(aptitude))
                         && VisibilityLockAPI.isVisible(client.player, AptitudeCompat.getName(aptitude)))
                 .toList());
         aptitudeList.sort(Comparator.comparingInt(a -> a.index));
@@ -138,14 +143,15 @@ public abstract class MixJLScreenAptitudeCompat {
         if (settings.showTitleButton()) {
             AptitudeCapability capability = AptitudeCapability.get();
             Title titleKey = capability != null ? RegistryTitles.getTitle(capability.getPlayerTitle()) : null;
-            String title = Base121Bridge.titleDisplayNameOrFallback(titleKey);
+            boolean titlelessSelected = titleKey != null && "titleless".equalsIgnoreCase(titleKey.getName());
+            String title = titlelessSelected ? JLFORKADDON_NONE_LABEL : Base121Bridge.titleDisplayNameOrFallback(titleKey);
             int titleWidth = client.font.width(title) + 15;
             boolean overTitleButton = Utils.checkMouse(x + 88 - titleWidth / 2 - 2, y + 27, mouseX, mouseY, titleWidth + 2, 14);
 
             matrixStack.blit(HandlerResources.SKILL_PAGE[this.selectedPage], x + 88 - titleWidth / 2 - 2, y + 27, overTitleButton ? 4 : 0, 214, 2, 14);
             matrixStack.blit(HandlerResources.SKILL_PAGE[this.selectedPage], x + 88 - titleWidth / 2, y + 27, 0, overTitleButton ? 228 : 242, titleWidth, 14);
             matrixStack.blit(HandlerResources.SKILL_PAGE[this.selectedPage], x + 88 + titleWidth / 2, y + 27, overTitleButton ? 6 : 2, 214, 2, 14);
-            matrixStack.drawString(client.font, title, x + 88 - titleWidth / 2 + 2, y + 30, Color.WHITE.getRGB());
+            matrixStack.drawString(client.font, title, x + 88 - titleWidth / 2 + 2, y + 30, titlelessSelected ? JLFORKADDON_NONE_COLOR : Color.WHITE.getRGB());
             matrixStack.blit(HandlerResources.SKILL_PAGE[this.selectedPage], x + 88 + titleWidth / 2 - 10, y + 30, 8, 218, 8, 8);
 
             if (overTitleButton) {
@@ -180,7 +186,7 @@ public abstract class MixJLScreenAptitudeCompat {
                 Aptitude aptitude = aptitudeList.get(index);
                 int aptitudeLevel = aptitude.getLevel();
                 String aptitudeName = AptitudeCompat.getDisplayNameOrFallback(aptitude);
-                String aptitudeAbbreviation = jlforkaddon$aptitudeAbbreviation(aptitudeName);
+                String aptitudeAbbreviation = AptitudeCompat.getAbbreviationOrFallback(aptitude);
 
                 int xPos = listX + column * APTITUDE_COLUMN_SPACING;
                 int yPos = listY + localRow * APTITUDE_ROW_SPACING;
@@ -274,6 +280,7 @@ public abstract class MixJLScreenAptitudeCompat {
                 List<Aptitude> aptitudeList = new ArrayList<>(RegistryAptitudes.APTITUDES_REGISTRY.get().getValues().stream()
                         .filter(aptitude -> AptitudeCompat.isEnabled(aptitude)
                                 && !AptitudeCompat.isHidden(aptitude)
+                                && !BackportRegistryState.isAptitudeDeleted(AptitudeCompat.getName(aptitude))
                                 && VisibilityLockAPI.isVisible(client.player, AptitudeCompat.getName(aptitude)))
                         .toList());
                 int totalRows = (aptitudeList.size() + APTITUDE_COLUMNS - 1) / APTITUDE_COLUMNS;
@@ -308,32 +315,4 @@ public abstract class MixJLScreenAptitudeCompat {
         this.jlforkaddon$aptitudeScrollKnobY = 0;
     }
 
-    @Unique
-    private static String jlforkaddon$aptitudeAbbreviation(String displayName) {
-        if (displayName == null || displayName.isBlank()) {
-            return "???";
-        }
-
-        String[] parts = displayName.split("[^a-zA-Z0-9]+");
-        StringBuilder abbreviation = new StringBuilder();
-        for (String part : parts) {
-            if (part == null || part.isBlank()) {
-                continue;
-            }
-            abbreviation.append(Character.toUpperCase(part.charAt(0)));
-            if (abbreviation.length() >= 3) {
-                break;
-            }
-        }
-
-        if (abbreviation.isEmpty()) {
-            String clean = displayName.replaceAll("[^a-zA-Z0-9]", "");
-            if (clean.isEmpty()) {
-                return "???";
-            }
-            return clean.substring(0, Math.min(3, clean.length())).toUpperCase(Locale.ROOT);
-        }
-
-        return abbreviation.toString();
-    }
 }

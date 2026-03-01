@@ -12,7 +12,9 @@ import com.seniors.justlevelingfork.registry.skills.Skill;
 import com.seniors.justlevelingfork.registry.title.Title;
 import com.joseetoon.justlevellingaddonjs.compat.AptitudeCompat;
 import com.joseetoon.justlevellingaddonjs.compat.CapabilityCompat;
+import com.joseetoon.justlevellingaddonjs.compat.base121.BackportRegistryState;
 import com.joseetoon.justlevellingaddonjs.compat.base121.Base121Bridge;
+import com.joseetoon.justlevellingaddonjs.compat.base121.TitleBlockState;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
@@ -62,7 +64,7 @@ public class PlayerDataAPI {
         }
 
         Aptitude aptitude = RegistryAptitudes.getAptitude(aptitudeName.toLowerCase(Locale.ROOT));
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return 0;
         }
         return cap.getAptitudeLevel(aptitude);
@@ -78,7 +80,7 @@ public class PlayerDataAPI {
         }
 
         Aptitude aptitude = RegistryAptitudes.getAptitude(aptitudeName.toLowerCase(Locale.ROOT));
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return;
         }
 
@@ -102,7 +104,7 @@ public class PlayerDataAPI {
         }
 
         Aptitude aptitude = RegistryAptitudes.getAptitude(aptitudeName.toLowerCase(Locale.ROOT));
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return;
         }
 
@@ -141,7 +143,10 @@ public class PlayerDataAPI {
         }
 
         Aptitude aptitude = RegistryAptitudes.getAptitude(aptitudeName.toLowerCase(Locale.ROOT));
-        return aptitude == null ? 0 : CapabilityCompat.getAptitudeSkillPointsAvailable(cap, aptitude);
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
+            return 0;
+        }
+        return CapabilityCompat.getAptitudeSkillPointsAvailable(cap, aptitude);
     }
 
     public static int getAptitudePointsSpent(Player player, String aptitudeName) {
@@ -155,7 +160,10 @@ public class PlayerDataAPI {
         }
 
         Aptitude aptitude = RegistryAptitudes.getAptitude(aptitudeName.toLowerCase(Locale.ROOT));
-        return aptitude == null ? 0 : CapabilityCompat.getAptitudeSkillPointsSpent(cap, aptitude);
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
+            return 0;
+        }
+        return CapabilityCompat.getAptitudeSkillPointsSpent(cap, aptitude);
     }
 
     public static boolean respecAptitude(Player player, String aptitudeName) {
@@ -169,7 +177,7 @@ public class PlayerDataAPI {
         }
 
         Aptitude aptitude = RegistryAptitudes.getAptitude(aptitudeName.toLowerCase(Locale.ROOT));
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return false;
         }
 
@@ -215,7 +223,9 @@ public class PlayerDataAPI {
         }
 
         Skill skill = RegistrySkills.getSkill(skillName.toLowerCase(Locale.ROOT));
-        return skill != null && cap.getToggleSkill(skill);
+        return skill != null
+                && !BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)
+                && cap.getToggleSkill(skill);
     }
 
     public static boolean isSkillUnlocked(Player player, String skillName) {
@@ -228,7 +238,9 @@ public class PlayerDataAPI {
         }
 
         Skill skill = RegistrySkills.getSkill(skillName.toLowerCase(Locale.ROOT));
-        return skill != null && CapabilityCompat.isSkillUnlocked(cap, skill);
+        return skill != null
+                && !BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)
+                && CapabilityCompat.isSkillUnlocked(cap, skill);
     }
 
     public static boolean unlockSkill(Player player, String skillName) {
@@ -241,7 +253,7 @@ public class PlayerDataAPI {
         }
 
         Skill skill = RegistrySkills.getSkill(skillName.toLowerCase(Locale.ROOT));
-        if (skill == null) {
+        if (skill == null || BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
             return false;
         }
 
@@ -265,7 +277,7 @@ public class PlayerDataAPI {
         }
 
         Skill skill = RegistrySkills.getSkill(skillName.toLowerCase(Locale.ROOT));
-        if (skill == null) {
+        if (skill == null || BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
             return;
         }
 
@@ -288,7 +300,7 @@ public class PlayerDataAPI {
         }
 
         Skill skill = RegistrySkills.getSkill(skillName.toLowerCase(Locale.ROOT));
-        if (skill == null) {
+        if (skill == null || BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
             return;
         }
 
@@ -316,7 +328,10 @@ public class PlayerDataAPI {
         }
 
         Passive passive = RegistryPassives.getPassive(passiveName.toLowerCase(Locale.ROOT));
-        return passive == null ? 0 : cap.getPassiveLevel(passive);
+        if (passive == null || BackportRegistryState.isPassiveBlockedByDeletedAptitude(passive)) {
+            return 0;
+        }
+        return cap.getPassiveLevel(passive);
     }
 
     public static void setPassiveLevel(Player player, String passiveName, int level) {
@@ -329,7 +344,7 @@ public class PlayerDataAPI {
         }
 
         Passive passive = RegistryPassives.getPassive(passiveName.toLowerCase(Locale.ROOT));
-        if (passive == null) {
+        if (passive == null || BackportRegistryState.isPassiveBlockedByDeletedAptitude(passive)) {
             return;
         }
 
@@ -353,6 +368,13 @@ public class PlayerDataAPI {
         if (player == null || titleName == null || titleName.isEmpty()) {
             return false;
         }
+        if (BackportRegistryState.isTitleDeleted(titleName)
+                || BackportRegistryState.isTitleDisabledByAddonConfig(titleName)) {
+            return false;
+        }
+        if (TitleBlockState.isBlocked(player, titleName)) {
+            return false;
+        }
 
         AptitudeCapability cap = AptitudeCapability.get(player);
         Title title = RegistryTitles.getTitle(titleName.toLowerCase(Locale.ROOT));
@@ -361,6 +383,13 @@ public class PlayerDataAPI {
 
     public static boolean setTitleUnlocked(Player player, String titleName, boolean unlocked) {
         if (player == null || titleName == null || titleName.isEmpty()) {
+            return false;
+        }
+        if (BackportRegistryState.isTitleDeleted(titleName)
+                || BackportRegistryState.isTitleDisabledByAddonConfig(titleName)) {
+            return false;
+        }
+        if (unlocked && TitleBlockState.isBlocked(player, titleName)) {
             return false;
         }
 
@@ -400,6 +429,13 @@ public class PlayerDataAPI {
         if (player == null || titleName == null || titleName.isEmpty()) {
             return false;
         }
+        if (BackportRegistryState.isTitleDeleted(titleName)
+                || BackportRegistryState.isTitleDisabledByAddonConfig(titleName)) {
+            return false;
+        }
+        if (TitleBlockState.isBlocked(player, titleName)) {
+            return false;
+        }
 
         AptitudeCapability cap = AptitudeCapability.get(player);
         Title title = RegistryTitles.getTitle(titleName.toLowerCase(Locale.ROOT));
@@ -425,6 +461,7 @@ public class PlayerDataAPI {
         }
 
         AptitudeCapability cap = AptitudeCapability.get(player);
+        BackportRegistryState.ensureTitlelessPresent(RegistryTitles.TITLES_REGISTRY.get());
         Title titleless = RegistryTitles.getTitle("titleless");
         if (cap == null || titleless == null) {
             return;
@@ -437,5 +474,81 @@ public class PlayerDataAPI {
             }
             sync(player);
         }
+    }
+
+    public static boolean blockTitle(Player player, String titleName) {
+        if (player == null || titleName == null || titleName.isEmpty()) {
+            return false;
+        }
+
+        AptitudeCapability cap = AptitudeCapability.get(player);
+        if (cap == null) {
+            return false;
+        }
+
+        String normalized = BackportRegistryState.normalizePath(titleName);
+        if (normalized == null) {
+            return false;
+        }
+
+        boolean changed = TitleBlockState.setBlocked(player, normalized, true);
+        if (!changed) {
+            return false;
+        }
+
+        boolean needsSync = false;
+        Title title = RegistryTitles.getTitle(normalized);
+        if (title != null && cap.getLockTitle(title)) {
+            cap.setUnlockTitle(title, false);
+            needsSync = true;
+        }
+
+        String currentTitle = BackportRegistryState.normalizePath(cap.getPlayerTitle());
+        if (normalized.equals(currentTitle)) {
+            clearPlayerTitle(player);
+            return true;
+        }
+
+        if (needsSync) {
+            sync(player);
+        }
+        return true;
+    }
+
+    public static boolean unblockTitle(Player player, String titleName) {
+        if (player == null || titleName == null || titleName.isEmpty()) {
+            return false;
+        }
+
+        String normalized = BackportRegistryState.normalizePath(titleName);
+        if (normalized == null) {
+            return false;
+        }
+
+        boolean changed = TitleBlockState.setBlocked(player, normalized, false);
+        if (changed) {
+            sync(player);
+        }
+        return changed;
+    }
+
+    public static boolean isTitleBlocked(Player player, String titleName) {
+        return TitleBlockState.isBlocked(player, titleName);
+    }
+
+    public static List<String> getBlockedTitles(Player player) {
+        return TitleBlockState.getBlockedTitles(player);
+    }
+
+    public static void clearBlockedTitles(Player player) {
+        if (player == null) {
+            return;
+        }
+        List<String> current = TitleBlockState.getBlockedTitles(player);
+        if (current.isEmpty()) {
+            return;
+        }
+        TitleBlockState.clearBlockedTitles(player);
+        sync(player);
     }
 }

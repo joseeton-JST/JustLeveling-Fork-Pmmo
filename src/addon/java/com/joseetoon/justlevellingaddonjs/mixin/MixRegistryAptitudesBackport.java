@@ -46,6 +46,10 @@ public abstract class MixRegistryAptitudesBackport {
         IForgeRegistry<Aptitude> registry = APTITUDES_REGISTRY != null ? APTITUDES_REGISTRY.get() : null;
 
         if (parsed != null) {
+            if (BackportRegistryState.isAptitudeDeleted(parsed.getPath())) {
+                cir.setReturnValue(null);
+                return;
+            }
             Aptitude pendingById = BackportRegistryState.findPendingAptitude(parsed, null);
             if (pendingById != null) {
                 cir.setReturnValue(pendingById);
@@ -63,6 +67,11 @@ public abstract class MixRegistryAptitudesBackport {
         String normalizedPath = parsed != null
                 ? parsed.getPath().toLowerCase(Locale.ROOT)
                 : aptitudeNameOrId.toLowerCase(Locale.ROOT);
+
+        if (BackportRegistryState.isAptitudeDeleted(normalizedPath)) {
+            cir.setReturnValue(null);
+            return;
+        }
 
         Aptitude pendingByPath = BackportRegistryState.findPendingAptitude(parsed, normalizedPath);
         if (pendingByPath != null) {

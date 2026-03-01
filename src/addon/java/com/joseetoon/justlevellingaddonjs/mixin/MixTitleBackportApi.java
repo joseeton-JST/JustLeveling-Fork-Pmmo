@@ -1,5 +1,6 @@
 package com.joseetoon.justlevellingaddonjs.mixin;
 
+import com.joseetoon.justlevellingaddonjs.compat.base121.BackportRegistryState;
 import com.joseetoon.justlevellingaddonjs.compat.base121.Base121Bridge;
 import com.seniors.justlevelingfork.registry.title.Title;
 import net.minecraft.network.chat.Component;
@@ -13,6 +14,11 @@ import java.util.Locale;
 public abstract class MixTitleBackportApi {
     public Component getDisplayNameComponentOrFallback() {
         Title self = (Title) (Object) this;
+        BackportRegistryState.TitleTextOverride textOverride = BackportRegistryState.getTitleTextOverride(self.getName());
+        if (textOverride != null && textOverride.displayNameOverride() != null) {
+            return Component.literal(textOverride.displayNameOverride());
+        }
+
         String translationKey = self.getKey();
         MutableComponent translated = Component.translatable(translationKey);
         if (translationKey.equals(translated.getString())) {
@@ -27,9 +33,17 @@ public abstract class MixTitleBackportApi {
 
     public Component getDescriptionComponentOrFallback() {
         Title self = (Title) (Object) this;
+        BackportRegistryState.TitleTextOverride textOverride = BackportRegistryState.getTitleTextOverride(self.getName());
+        if (textOverride != null && textOverride.descriptionOverride() != null) {
+            return Component.literal(textOverride.descriptionOverride());
+        }
+
         String translationKey = self.getDescription();
         MutableComponent translated = Component.translatable(translationKey);
         if (translationKey.equals(translated.getString())) {
+            if (textOverride != null && textOverride.displayNameOverride() != null) {
+                return Component.literal(textOverride.displayNameOverride());
+            }
             return Component.literal(getDisplayNameOrFallback());
         }
         return translated;

@@ -3,6 +3,7 @@ package com.joseetoon.justlevellingaddonjs.kubejs;
 import com.seniors.justlevelingfork.common.capability.AptitudeCapability;
 import com.seniors.justlevelingfork.registry.RegistryAptitudes;
 import com.seniors.justlevelingfork.registry.aptitude.Aptitude;
+import com.joseetoon.justlevellingaddonjs.compat.base121.BackportRegistryState;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.Collections;
@@ -66,6 +67,9 @@ public class VisibilityLockAPI {
         }
 
         for (Map.Entry<String, Integer> entry : requirements.entrySet()) {
+            if (BackportRegistryState.isAptitudeDeleted(entry.getKey())) {
+                continue;
+            }
             Aptitude requiredAptitude = RegistryAptitudes.getAptitude(entry.getKey());
             if (requiredAptitude == null) {
                 return false;

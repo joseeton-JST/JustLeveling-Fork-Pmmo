@@ -50,13 +50,13 @@ public abstract class MixRegistrySkillsBackport {
         if (parsed != null) {
             Skill pendingById = BackportRegistryState.findPendingSkill(parsed, null);
             if (pendingById != null) {
-                cir.setReturnValue(pendingById);
+                cir.setReturnValue(BackportRegistryState.isSkillBlockedByDeletedAptitude(pendingById) ? null : pendingById);
                 return;
             }
             if (registry != null) {
                 Skill registeredById = registry.getValue(parsed);
                 if (registeredById != null) {
-                    cir.setReturnValue(registeredById);
+                    cir.setReturnValue(BackportRegistryState.isSkillBlockedByDeletedAptitude(registeredById) ? null : registeredById);
                     return;
                 }
             }
@@ -68,7 +68,7 @@ public abstract class MixRegistrySkillsBackport {
 
         Skill pendingByPath = BackportRegistryState.findPendingSkill(parsed, normalizedPath);
         if (pendingByPath != null) {
-            cir.setReturnValue(pendingByPath);
+            cir.setReturnValue(BackportRegistryState.isSkillBlockedByDeletedAptitude(pendingByPath) ? null : pendingByPath);
             return;
         }
 
@@ -78,7 +78,8 @@ public abstract class MixRegistrySkillsBackport {
         }
 
         Skill result = registry.getValues().stream()
-                .filter(skill -> skill.getName().equalsIgnoreCase(normalizedPath))
+                .filter(skill -> skill.getName().equalsIgnoreCase(normalizedPath)
+                        && !BackportRegistryState.isSkillBlockedByDeletedAptitude(skill))
                 .findFirst()
                 .orElse(null);
         cir.setReturnValue(result);

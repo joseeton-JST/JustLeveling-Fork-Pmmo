@@ -6,8 +6,10 @@ import com.seniors.justlevelingfork.registry.RegistryAptitudes;
 import com.seniors.justlevelingfork.registry.aptitude.Aptitude;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.LinkedHashMap;
 import java.lang.reflect.Method;
 import java.util.Locale;
+import java.util.Map;
 
 public class AptitudeAPI {
     private static final String DEFAULT_BACKGROUND = "minecraft:textures/block/stone.png";
@@ -100,6 +102,75 @@ public class AptitudeAPI {
             throw new IllegalArgumentException("Invalid background texture resource location: " + backgroundTexture, exception);
         }
         AptitudeCompat.setBackground(aptitude, resourceLocation);
+    }
+
+    public static boolean remove(String aptitudeName) {
+        if (aptitudeName == null || aptitudeName.isBlank()) {
+            return false;
+        }
+        Aptitude aptitude = getByName(aptitudeName);
+        if (aptitude != null) {
+            AptitudeCompat.setEnabled(aptitude, false);
+            AptitudeCompat.setHidden(aptitude, true);
+        }
+        return BackportRegistryState.markAptitudeDeleted(aptitudeName);
+    }
+
+    public static boolean exists(String aptitudeName) {
+        if (aptitudeName == null || aptitudeName.isBlank()) {
+            return false;
+        }
+        if (BackportRegistryState.isAptitudeDeleted(aptitudeName)) {
+            return false;
+        }
+        return getByName(aptitudeName) != null;
+    }
+
+    public static boolean isDeleted(String aptitudeName) {
+        if (aptitudeName == null || aptitudeName.isBlank()) {
+            return false;
+        }
+        return BackportRegistryState.isAptitudeDeleted(aptitudeName);
+    }
+
+    public static boolean setAbbreviationOverride(String aptitudeName, String abbreviation) {
+        Aptitude aptitude = getByName(aptitudeName);
+        if (aptitude == null) {
+            return false;
+        }
+        AptitudeCompat.setAbbreviationOverride(aptitude, abbreviation);
+        BackportRegistryState.setAptitudeAbbreviationOverride(aptitude.getName(), AptitudeCompat.getAbbreviationOverride(aptitude));
+        return true;
+    }
+
+    public static boolean clearAbbreviationOverride(String aptitudeName) {
+        Aptitude aptitude = getByName(aptitudeName);
+        if (aptitude != null) {
+            AptitudeCompat.clearAbbreviationOverride(aptitude);
+            BackportRegistryState.clearAptitudeAbbreviationOverride(aptitude.getName());
+            return true;
+        }
+        if (aptitudeName == null || aptitudeName.isBlank()) {
+            return false;
+        }
+        BackportRegistryState.clearAptitudeAbbreviationOverride(aptitudeName);
+        return true;
+    }
+
+    public static String getAbbreviationOverride(String aptitudeName) {
+        Aptitude aptitude = getByName(aptitudeName);
+        if (aptitude == null) {
+            return "";
+        }
+        String override = AptitudeCompat.getAbbreviationOverride(aptitude);
+        return override == null ? "" : override;
+    }
+
+    public static Map<String, Object> getStateSnapshot() {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("deletedAptitudes", BackportRegistryState.deletedAptitudesSnapshot());
+        snapshot.put("abbreviationOverrides", BackportRegistryState.aptitudeAbbreviationOverridesSnapshot());
+        return snapshot;
     }
 
     private static Aptitude invokeAddWithId(ResourceLocation id, String background, Integer backgroundRepeat, String... lockedTextures) {

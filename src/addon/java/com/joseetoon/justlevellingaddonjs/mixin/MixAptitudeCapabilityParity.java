@@ -1,6 +1,7 @@
 package com.joseetoon.justlevellingaddonjs.mixin;
 
 import com.joseetoon.justlevellingaddonjs.compat.AptitudeCompat;
+import com.joseetoon.justlevellingaddonjs.compat.base121.BackportRegistryState;
 import com.joseetoon.justlevellingaddonjs.kubejs.compat.SkillCompat;
 import com.seniors.justlevelingfork.common.capability.AptitudeCapability;
 import com.seniors.justlevelingfork.registry.RegistryAptitudes;
@@ -31,7 +32,7 @@ public abstract class MixAptitudeCapabilityParity {
     private final Map<String, Boolean> jlforkaddon$unlockSkill = new HashMap<>();
 
     public int getAptitudeSkillPointsTotal(Aptitude aptitude) {
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return 0;
         }
         AptitudeCapability self = (AptitudeCapability) (Object) this;
@@ -41,7 +42,7 @@ public abstract class MixAptitudeCapabilityParity {
     }
 
     public int getAptitudeSkillPointsSpent(Aptitude aptitude) {
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return 0;
         }
         String key = aptitude.getName();
@@ -49,14 +50,14 @@ public abstract class MixAptitudeCapabilityParity {
     }
 
     public int getAptitudeSkillPointsAvailable(Aptitude aptitude) {
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return 0;
         }
         return Math.max(0, getAptitudeSkillPointsTotal(aptitude) - getAptitudeSkillPointsSpent(aptitude));
     }
 
     public boolean trySpendAptitudePoints(Aptitude aptitude, int amount) {
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return false;
         }
         if (amount <= 0) {
@@ -71,7 +72,7 @@ public abstract class MixAptitudeCapabilityParity {
     }
 
     public void refundAptitudePoints(Aptitude aptitude, int amount) {
-        if (aptitude == null || amount <= 0) {
+        if (aptitude == null || amount <= 0 || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return;
         }
         String key = aptitude.getName();
@@ -80,7 +81,7 @@ public abstract class MixAptitudeCapabilityParity {
     }
 
     public boolean isSkillUnlocked(Skill skill) {
-        if (skill == null) {
+        if (skill == null || BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
             return false;
         }
         return this.jlforkaddon$unlockSkill.getOrDefault(skill.getName(), false);
@@ -89,6 +90,9 @@ public abstract class MixAptitudeCapabilityParity {
     public void setSkillUnlocked(Skill skill, boolean unlocked) {
         if (skill == null) {
             return;
+        }
+        if (BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
+            unlocked = false;
         }
 
         AptitudeCapability self = (AptitudeCapability) (Object) this;
@@ -99,7 +103,7 @@ public abstract class MixAptitudeCapabilityParity {
     }
 
     public boolean tryUnlockSkill(Skill skill) {
-        if (skill == null) {
+        if (skill == null || BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
             return false;
         }
         if (isSkillUnlocked(skill)) {
@@ -128,7 +132,8 @@ public abstract class MixAptitudeCapabilityParity {
             return;
         }
 
-        boolean canEnable = AptitudeCompat.isEnabled(skill.aptitude)
+        boolean canEnable = !BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)
+                && AptitudeCompat.isEnabled(skill.aptitude)
                 && skill.requiredLevel > 0
                 && self.getAptitudeLevel(skill.aptitude) >= skill.requiredLevel;
         self.toggleSkill.put(skill.getName(), toggle && canEnable);
@@ -138,7 +143,7 @@ public abstract class MixAptitudeCapabilityParity {
     @Inject(method = "addPassiveLevel", at = @At("HEAD"), cancellable = true, require = 0)
     private void jlforkaddon$addPassiveLevelGuard(Passive passive, int addLvl, CallbackInfo ci) {
         AptitudeCapability self = (AptitudeCapability) (Object) this;
-        if (passive == null || addLvl <= 0) {
+        if (passive == null || addLvl <= 0 || BackportRegistryState.isPassiveBlockedByDeletedAptitude(passive)) {
             ci.cancel();
             return;
         }
@@ -160,7 +165,7 @@ public abstract class MixAptitudeCapabilityParity {
     }
 
     public void respecAptitude(Aptitude aptitude) {
-        if (aptitude == null) {
+        if (aptitude == null || BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
             return;
         }
 
@@ -191,6 +196,72 @@ public abstract class MixAptitudeCapabilityParity {
         jlforkaddon$clampAptitudePointsSpent(aptitude);
     }
 
+    @Inject(method = "getAptitudeLevel(Lcom/seniors/justlevelingfork/registry/aptitude/Aptitude;)I", at = @At("HEAD"), cancellable = true, require = 0)
+    private void jlforkaddon$getAptitudeLevelDeleted(Aptitude aptitude, CallbackInfoReturnable<Integer> cir) {
+        if (aptitude == null) {
+            cir.setReturnValue(0);
+            return;
+        }
+        if (BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
+            cir.setReturnValue(0);
+        }
+    }
+
+    @Inject(method = "getAptitudeLevel(Ljava/lang/String;)I", at = @At("HEAD"), cancellable = true, require = 0)
+    private void jlforkaddon$getAptitudeLevelByNameDeleted(String aptitudeName, CallbackInfoReturnable<Integer> cir) {
+        if (aptitudeName == null || aptitudeName.isEmpty()) {
+            cir.setReturnValue(0);
+            return;
+        }
+        if (BackportRegistryState.isAptitudeDeleted(aptitudeName)) {
+            cir.setReturnValue(0);
+        }
+    }
+
+    @Inject(method = "getGlobalLevel", at = @At("HEAD"), cancellable = true, require = 0)
+    private void jlforkaddon$getGlobalLevelDeletedAware(CallbackInfoReturnable<Integer> cir) {
+        AptitudeCapability self = (AptitudeCapability) (Object) this;
+
+        int totalWeight = 0;
+        long weightedSum = 0;
+
+        for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues()) {
+            if (BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
+                continue;
+            }
+            int weight = BackportRegistryState.getAptitudeGlobalLevelWeight(aptitude.getName());
+            int level = self.aptitudeLevel.getOrDefault(aptitude.getName(), 0);
+            totalWeight += weight;
+            weightedSum += (long) level * weight;
+        }
+
+        int result = totalWeight > 0
+                ? (int) Math.floor((double) weightedSum / totalWeight)
+                : 0;
+        cir.setReturnValue(result);
+    }
+
+    @Inject(method = "getToggleSkill", at = @At("HEAD"), cancellable = true, require = 0)
+    private void jlforkaddon$getToggleSkillDeleted(Skill skill, CallbackInfoReturnable<Boolean> cir) {
+        if (BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "isSkillUnlocked", at = @At("HEAD"), cancellable = true, require = 0)
+    private void jlforkaddon$isSkillUnlockedDeleted(Skill skill, CallbackInfoReturnable<Boolean> cir) {
+        if (BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(method = "getPassiveLevel", at = @At("HEAD"), cancellable = true, require = 0)
+    private void jlforkaddon$getPassiveLevelDeleted(Passive passive, CallbackInfoReturnable<Integer> cir) {
+        if (BackportRegistryState.isPassiveBlockedByDeletedAptitude(passive)) {
+            cir.setReturnValue(0);
+        }
+    }
+
     @Inject(method = "serializeNBT()Lnet/minecraft/nbt/CompoundTag;", at = @At("RETURN"), cancellable = true, require = 0)
     private void jlforkaddon$serializeNBT(CallbackInfoReturnable<CompoundTag> cir) {
         CompoundTag nbt = cir.getReturnValue();
@@ -200,10 +271,12 @@ public abstract class MixAptitudeCapabilityParity {
 
         nbt.putInt("justlevellingaddonjs:data_version", 1);
         for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues()) {
-            nbt.putInt("justlevellingaddonjs:aptitude_spent." + aptitude.getName(), getAptitudeSkillPointsSpent(aptitude));
+            int spent = BackportRegistryState.isAptitudeDeleted(aptitude.getName()) ? 0 : getAptitudeSkillPointsSpent(aptitude);
+            nbt.putInt("justlevellingaddonjs:aptitude_spent." + aptitude.getName(), spent);
         }
         for (Skill skill : RegistrySkills.SKILLS_REGISTRY.get().getValues()) {
-            nbt.putBoolean("justlevellingaddonjs:skill_unlocked." + skill.getName(), isSkillUnlocked(skill));
+            boolean unlocked = !BackportRegistryState.isSkillBlockedByDeletedAptitude(skill) && isSkillUnlocked(skill);
+            nbt.putBoolean("justlevellingaddonjs:skill_unlocked." + skill.getName(), unlocked);
         }
         cir.setReturnValue(nbt);
     }
@@ -215,6 +288,10 @@ public abstract class MixAptitudeCapabilityParity {
         }
 
         for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues()) {
+            if (BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
+                this.jlforkaddon$aptitudePointsSpent.put(aptitude.getName(), 0);
+                continue;
+            }
             String spentKey = "justlevellingaddonjs:aptitude_spent." + aptitude.getName();
             if (nbt.contains(spentKey, Tag.TAG_INT)) {
                 this.jlforkaddon$aptitudePointsSpent.put(aptitude.getName(), Math.max(0, nbt.getInt(spentKey)));
@@ -225,6 +302,11 @@ public abstract class MixAptitudeCapabilityParity {
         }
 
         for (Skill skill : RegistrySkills.SKILLS_REGISTRY.get().getValues()) {
+            if (BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
+                this.jlforkaddon$unlockSkill.put(skill.getName(), false);
+                ((AptitudeCapability) (Object) this).toggleSkill.put(skill.getName(), false);
+                continue;
+            }
             String unlockedKey = "justlevellingaddonjs:skill_unlocked." + skill.getName();
             if (nbt.contains(unlockedKey, Tag.TAG_BYTE)) {
                 this.jlforkaddon$unlockSkill.put(skill.getName(), nbt.getBoolean(unlockedKey));
@@ -243,6 +325,7 @@ public abstract class MixAptitudeCapabilityParity {
                 self.unlockTitle.put(title.getName(), title.Requirement);
             }
         }
+        jlforkaddon$sanitizeDeletedState();
     }
 
     @Inject(method = "copyFrom", at = @At("TAIL"), require = 0)
@@ -280,6 +363,7 @@ public abstract class MixAptitudeCapabilityParity {
             }
         } catch (Throwable ignored) {
         }
+        jlforkaddon$sanitizeDeletedState();
     }
 
     @Unique
@@ -287,10 +371,40 @@ public abstract class MixAptitudeCapabilityParity {
         if (aptitude == null) {
             return;
         }
+        if (BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
+            this.jlforkaddon$aptitudePointsSpent.put(aptitude.getName(), 0);
+            return;
+        }
         int maxSpend = getAptitudeSkillPointsTotal(aptitude);
         int current = getAptitudeSkillPointsSpent(aptitude);
         if (current > maxSpend) {
             this.jlforkaddon$aptitudePointsSpent.put(aptitude.getName(), maxSpend);
+        }
+    }
+
+    @Unique
+    private void jlforkaddon$sanitizeDeletedState() {
+        AptitudeCapability self = (AptitudeCapability) (Object) this;
+        for (Aptitude aptitude : RegistryAptitudes.APTITUDES_REGISTRY.get().getValues()) {
+            if (!BackportRegistryState.isAptitudeDeleted(aptitude.getName())) {
+                continue;
+            }
+            self.aptitudeLevel.put(aptitude.getName(), 0);
+            this.jlforkaddon$aptitudePointsSpent.put(aptitude.getName(), 0);
+        }
+
+        for (Passive passive : RegistryPassives.PASSIVES_REGISTRY.get().getValues()) {
+            if (BackportRegistryState.isPassiveBlockedByDeletedAptitude(passive)) {
+                self.passiveLevel.put(passive.getName(), 0);
+            }
+        }
+
+        for (Skill skill : RegistrySkills.SKILLS_REGISTRY.get().getValues()) {
+            if (!BackportRegistryState.isSkillBlockedByDeletedAptitude(skill)) {
+                continue;
+            }
+            this.jlforkaddon$unlockSkill.put(skill.getName(), false);
+            self.toggleSkill.put(skill.getName(), false);
         }
     }
 }

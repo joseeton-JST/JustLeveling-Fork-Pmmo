@@ -49,6 +49,15 @@ public abstract class MixLegendaryTabsAddTabMirror {
         jlforkaddon$mirrorInventoryTabsToAptitudes(screen.getClass());
     }
 
+    @Inject(method = "initScreenButtons", at = @At("TAIL"), require = 0)
+    private static void jlforkaddon$mirrorAfterButtonInit(ScreenEvent.Init.Post event, CallbackInfo ci) {
+        Screen screen = event.getScreen();
+        jlforkaddon$mirrorInventoryTabsToAptitudes(screen.getClass());
+        if (JLFORKADDON$LOGGER.isDebugEnabled()) {
+            JLFORKADDON$LOGGER.debug("[compat] LegendaryTabs mirror converged for screen={}", screen.getClass().getName());
+        }
+    }
+
     @Unique
     private static void jlforkaddon$mirrorInventoryTabsToAptitudes() {
         jlforkaddon$mirrorInventoryTabsToAptitudes(null);

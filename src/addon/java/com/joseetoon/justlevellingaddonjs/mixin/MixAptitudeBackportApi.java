@@ -1,6 +1,7 @@
 package com.joseetoon.justlevellingaddonjs.mixin;
 
 import com.joseetoon.justlevellingaddonjs.compat.base121.Base121Bridge;
+import com.joseetoon.justlevellingaddonjs.compat.base121.BackportRegistryState;
 import com.joseetoon.justlevellingaddonjs.compat.base121.CompatReflection;
 import com.seniors.justlevelingfork.registry.aptitude.Aptitude;
 import net.minecraft.network.chat.Component;
@@ -32,6 +33,8 @@ public abstract class MixAptitudeBackportApi {
     @Unique
     private String jlforkaddon$displayNameOverride = null;
     @Unique
+    private String jlforkaddon$abbreviationOverride = null;
+    @Unique
     private int jlforkaddon$skillPointInterval = 2;
     @Unique
     private int jlforkaddon$backgroundRepeat = 0;
@@ -56,11 +59,20 @@ public abstract class MixAptitudeBackportApi {
     }
 
     public String getAbbreviationOrFallback() {
+        Aptitude self = (Aptitude) (Object) this;
+        String stateOverride = BackportRegistryState.getAptitudeAbbreviationOverride(self.getName());
+        if (stateOverride != null && !stateOverride.isBlank()) {
+            this.jlforkaddon$abbreviationOverride = stateOverride;
+        }
+
+        if (this.jlforkaddon$abbreviationOverride != null && !this.jlforkaddon$abbreviationOverride.isBlank()) {
+            return this.jlforkaddon$abbreviationOverride;
+        }
+
         if (this.jlforkaddon$displayNameOverride != null && !this.jlforkaddon$displayNameOverride.isBlank()) {
             return jlforkaddon$buildFallbackAbbreviation(this.jlforkaddon$displayNameOverride);
         }
 
-        Aptitude self = (Aptitude) (Object) this;
         String translationKey = self.getKey() + ".abbreviation";
         String translated = Component.translatable(translationKey).getString();
         return translated.equals(translationKey) ? jlforkaddon$buildFallbackAbbreviation(self.getName()) : translated;
@@ -91,6 +103,18 @@ public abstract class MixAptitudeBackportApi {
 
     public void setDisplayNameOverride(String displayNameOverride) {
         this.jlforkaddon$displayNameOverride = (displayNameOverride == null || displayNameOverride.isBlank()) ? null : displayNameOverride;
+    }
+
+    public String getAbbreviationOverride() {
+        return this.jlforkaddon$abbreviationOverride;
+    }
+
+    public void setAbbreviationOverride(String abbreviationOverride) {
+        this.jlforkaddon$abbreviationOverride = (abbreviationOverride == null || abbreviationOverride.isBlank()) ? null : abbreviationOverride;
+    }
+
+    public void clearAbbreviationOverride() {
+        this.jlforkaddon$abbreviationOverride = null;
     }
 
     public int getSkillPointInterval() {
@@ -364,5 +388,15 @@ public abstract class MixAptitudeBackportApi {
         }
 
         return abbreviation.toString();
+    }
+
+    public void setGlobalLevelWeight(int weight) {
+        BackportRegistryState.setAptitudeGlobalLevelWeight(
+                ((Aptitude) (Object) this).getName(), weight);
+    }
+
+    public int getGlobalLevelWeight() {
+        return BackportRegistryState.getAptitudeGlobalLevelWeight(
+                ((Aptitude) (Object) this).getName());
     }
 }

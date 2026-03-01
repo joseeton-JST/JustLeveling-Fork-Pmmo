@@ -71,6 +71,19 @@ def resolveLegendaryTabsJar = {
     }
 
     List<File> searchRoots = [file('run/mods'), file('mods'), file('libs')]
+
+    // Common local CurseForge location: %USERPROFILE%/curseforge/minecraft/Instances/*/mods
+    File userHome = file(System.getProperty('user.home'))
+    File curseforgeInstancesRoot = new File(userHome, 'curseforge/minecraft/Instances')
+    if (curseforgeInstancesRoot.exists() && curseforgeInstancesRoot.isDirectory()) {
+        curseforgeInstancesRoot.listFiles()?.findAll { it.isDirectory() }?.each { instanceDir ->
+            File modsDir = new File(instanceDir, 'mods')
+            if (modsDir.exists() && modsDir.isDirectory()) {
+                searchRoots.add(modsDir)
+            }
+        }
+    }
+
     List<File> candidates = []
     searchRoots.findAll { it.exists() }.each { root ->
         candidates.addAll(fileTree(root) {
@@ -82,7 +95,55 @@ def resolveLegendaryTabsJar = {
     if (candidates.isEmpty()) {
         return null
     }
-    return candidates.sort { a, b -> b.lastModified() <=> a.lastModified() }.first()
+
+    def parseLegendaryVersionParts = { File jar ->
+        String fileName = jar.name.toLowerCase()
+        String versionString = null
+
+        def withMc = (fileName =~ /legendarytabs-1\.20\.1-([0-9][0-9a-z.\-_]*)\.jar/)
+        if (withMc.find()) {
+            versionString = withMc.group(1)
+        } else {
+            def generic = (fileName =~ /legendarytabs-([0-9][0-9a-z.\-_]*)\.jar/)
+            if (generic.find()) {
+                versionString = generic.group(1)
+            }
+        }
+
+        if (versionString == null) {
+            return []
+        }
+
+        return versionString
+                .tokenize('.-_')
+                .collect { token ->
+                    def matcher = (token =~ /(\d+)/)
+                    matcher.find() ? Integer.parseInt(matcher.group(1)) : 0
+                }
+    }
+
+    def compareVersionParts = { List<Integer> a, List<Integer> b ->
+        int len = Math.max(a.size(), b.size())
+        for (int i = 0; i < len; i++) {
+            int av = i < a.size() ? a[i] : 0
+            int bv = i < b.size() ? b[i] : 0
+            if (av != bv) {
+                return av <=> bv
+            }
+        }
+        return 0
+    }
+
+    return candidates.max { left, right ->
+        int byVersion = compareVersionParts(
+                parseLegendaryVersionParts(left),
+                parseLegendaryVersionParts(right)
+        )
+        if (byVersion != 0) {
+            return byVersion
+        }
+        return left.lastModified() <=> right.lastModified()
+    }
 }
 
 def requireLegendaryTabsJar = {
@@ -92,6 +153,7 @@ def requireLegendaryTabsJar = {
                 "Set -PlegendaryTabsJarPath=<path> or JLFORK_LEGENDARYTABS_JAR, " +
                 "or place LegendaryTabs*.jar in run/mods, mods, or libs.")
     }
+    logger.lifecycle("Using LegendaryTabs jar: ${legendaryJar}")
     return legendaryJar
 }
 
@@ -311,6 +373,8 @@ dependencies {
     compileOnly files(layout.buildDirectory.dir("generated/l2tabs-api"))
     addonCompileOnly files(resolveBase121Jar())
     addonCompileOnly files({ requireLegendaryTabsJar() })
+    // LegendaryTabs is mandatory at runtime for the addon in the current integration mode.
+    runtimeOnly files({ requireLegendaryTabsJar() })
 
     // ClothConfig implementation (Required by BetterCombat)
     implementation fg.deobf("me.shedaniel.cloth:cloth-config-forge:11.1.118")

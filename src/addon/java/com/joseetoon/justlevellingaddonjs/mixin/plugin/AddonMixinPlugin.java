@@ -1,5 +1,6 @@
 package com.joseetoon.justlevellingaddonjs.mixin.plugin;
 
+import net.minecraftforge.fml.ModList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.tree.ClassNode;
@@ -30,7 +31,18 @@ public class AddonMixinPlugin implements IMixinConfigPlugin {
         ensureBase121Fingerprint();
         String mixinSimple = mixinClassName.substring(mixinClassName.lastIndexOf('.') + 1);
         if ("MixLegendaryTabsAddTabMirror".equals(mixinSimple)) {
-            return classExists(targetClassName);
+            boolean legendaryLoaded = isLegendaryTabsLoaded();
+            ClassNode legendaryNode = loadClassNode(targetClassName);
+            if (!legendaryLoaded && legendaryNode == null && !classExists(targetClassName)) {
+                return false;
+            }
+            if (legendaryNode == null) {
+                LOGGER.debug("[compat] Applying '{}' for '{}' using fallback gate (modLoaded={}, classNodeAvailable=false).",
+                        mixinClassName, targetClassName, legendaryLoaded);
+                return true;
+            }
+
+            return hasMethod(legendaryNode, "addTabToScreen") && hasField(legendaryNode, "tabsScreens");
         }
 
         ClassNode node = loadClassNode(targetClassName);
@@ -52,10 +64,15 @@ public class AddonMixinPlugin implements IMixinConfigPlugin {
             case "MixRegistrySkillsBackport" -> !hasMethodQuiet(node, "addPendingSkill");
             case "MixRegistryPassivesBackport" -> !hasMethodQuiet(node, "addPendingPassive");
             case "MixRegistryTitlesBackport" -> !hasMethodQuiet(node, "setKubeJSConditions") || !hasMethodQuiet(node, "addPendingTitle");
+            case "MixRegistryTitlesCrudControls" -> hasMethod(node, "getTitle") && hasMethod(node, "serverPlayerTitles");
             case "MixAptitudeBackportApi" -> !hasMethodQuiet(node, "getLevelCap") || !hasMethodQuiet(node, "addWithId");
             case "MixSkillBackportApi" -> !hasMethodQuiet(node, "addWithId") || !hasMethodQuiet(node, "getPointCost");
             case "MixPassiveBackportApi" -> !hasMethodQuiet(node, "addWithId") || !hasMethodQuiet(node, "getPointCost");
             case "MixTitleBackportApi" -> !hasMethodQuiet(node, "getDisplayNameComponentOrFallback") || !hasMethodQuiet(node, "add");
+            case "MixTitleRuntimeGuards" -> hasMethod(node, "setRequirement")
+                    && hasMethod(node, "getDisplayNameComponentOrFallback")
+                    && hasMethod(node, "getDescriptionComponentOrFallback");
+            case "MixTitleOverlayCPDedup" -> hasMethod(node, "handle") && hasField(node, "title");
             case "MixAptitudeCapabilityParity" -> !hasMethodQuiet(node, "isSkillUnlocked")
                     || !hasMethodQuiet(node, "tryUnlockSkill")
                     || !hasMethodQuiet(node, "getAptitudeSkillPointsAvailable");
@@ -65,6 +82,9 @@ public class AddonMixinPlugin implements IMixinConfigPlugin {
             case "MixToggleSkillSP" -> hasMethod(node, "handle") && hasField(node, "skill") && hasField(node, "toggle");
             case "MixPassiveLevelUpSP", "MixPassiveLevelDownSP" -> hasMethod(node, "handle") && hasField(node, "passive");
             case "MixAptitudeLevelCommand" -> hasMethod(node, "setAptitude") && hasMethod(node, "addAptitude");
+            case "MixAptitudeArgumentDeletedGuard" -> hasMethod(node, "parse") && hasMethod(node, "listSuggestions");
+            case "MixTitleArgumentDeletedGuard" -> hasMethod(node, "getResource") && hasMethod(node, "listSuggestions");
+            case "MixTitleCommandDeletedGuard" -> hasMethod(node, "setTitle");
             case "MixRegistryCommonEvents" -> hasMethod(node, "onLeftClickBlock");
             case "MixL2TabsIntegrationLegendaryCompat" -> hasMethod(node, "isModLoaded");
             case "MixDrawTabsOffset" -> hasMethod(node, "render") && hasMethod(node, "renderWidget");
@@ -75,6 +95,7 @@ public class AddonMixinPlugin implements IMixinConfigPlugin {
             case "MixJLScreenAptitudeNameFallback" -> hasMethod(node, "drawSkills");
             case "MixJLScreenOptionalControls" -> hasMethod(node, "drawSkills") && hasMethod(node, "drawTitles");
             case "MixJLScreenTitlesFilter" -> hasMethod(node, "drawTitles");
+            case "MixPlayerRendererTitleColor" -> true;
             default -> true;
         };
     }
@@ -108,6 +129,14 @@ public class AddonMixinPlugin implements IMixinConfigPlugin {
         try {
             Class.forName(className, false, AddonMixinPlugin.class.getClassLoader());
             return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isLegendaryTabsLoaded() {
+        try {
+            return ModList.get().isLoaded("legendarytabs");
         } catch (Throwable ignored) {
             return false;
         }

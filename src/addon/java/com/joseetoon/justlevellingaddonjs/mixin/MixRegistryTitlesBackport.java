@@ -44,8 +44,18 @@ public abstract class MixRegistryTitlesBackport {
 
     @Inject(method = "getTitle", at = @At("HEAD"), cancellable = true, require = 0)
     private static void jlforkaddon$getTitle(String titleName, CallbackInfoReturnable<Title> cir) {
+        if (cir.isCancelled()) {
+            return;
+        }
+
         String normalized = BackportRegistryState.normalizePath(titleName);
         if (normalized == null) {
+            cir.setReturnValue(null);
+            return;
+        }
+
+        if (BackportRegistryState.isTitleDeleted(normalized)
+                || BackportRegistryState.isTitleDisabledByAddonConfig(normalized)) {
             cir.setReturnValue(null);
             return;
         }
@@ -86,8 +96,16 @@ public abstract class MixRegistryTitlesBackport {
 
         serverPlayer.getCapability(RegistryCapabilities.APTITUDE).ifPresent(capability -> {
             for (var entry : new ArrayList<>(BackportRegistryState.titleConditionsSnapshot().entrySet())) {
+                if (BackportRegistryState.isTitleDeleted(entry.getKey())) {
+                    continue;
+                }
                 Title title = RegistryTitles.getTitle(entry.getKey());
                 if (title == null) {
+                    continue;
+                }
+                if (BackportRegistryState.isTitleDeleted(title.getName())
+                        || BackportRegistryState.isTitleDisabledByAddonConfig(title.getName())
+                        || BackportRegistryState.isTitleServerManaged(title.getName())) {
                     continue;
                 }
 

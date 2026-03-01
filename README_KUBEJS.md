@@ -25,6 +25,12 @@ Out of scope in this fork:
 
 - Traits / unlockables API like old CompatSkills 1.12.2
 
+Addon compatibility note:
+
+- `Just Levelling Addon JS 1.1.0` targets `JustLevelingFork 1.2.1` with exact binary compatibility.
+- If base mod version differs from `1.2.1`, addon fails fast with a compatibility error instead of loading partially.
+- Always keep only one addon jar in `mods/` and confirm exact versions in `latest.log` when debugging mixin issues.
+
 PSA about event bypasses:
 
 - `JLForkEvents.aptitudeLevelUpServer` is fired when leveling through the normal aptitude level-up packet flow.
@@ -126,19 +132,43 @@ PSA:
 ### Syntax
 
 ```js
+Aptitude.add(String name)
+Aptitude.addWithId(String nameOrId)
+
 Aptitude.add(String name, String background, String... lockedTextures)
 Aptitude.add(String name, String background, int backgroundRepeat, String... lockedTextures)
 Aptitude.addWithId(String nameOrId, String background, String... lockedTextures)
 Aptitude.addWithId(String nameOrId, String background, int backgroundRepeat, String... lockedTextures)
-Aptitude.addWithId(ResourceLocation id, String background, String... lockedTextures)
-Aptitude.addWithId(ResourceLocation id, String background, int backgroundRepeat, String... lockedTextures)
+Aptitude#setBackgroundTexture(String backgroundTexture)
+
 Aptitude.getByName(String nameOrId)
+```
+
+PSA:
+
+- Recommended flow is instance-first: `aptitude.setBackgroundTexture('namespace:path')`.
+
+### Legacy Signatures
+
+```js
+Aptitude.add(String name, String background, String... lockedTextures)
+Aptitude.add(String name, String background, int backgroundRepeat, String... lockedTextures)
+Aptitude.addWithId(String nameOrId, String background, String... lockedTextures)
+Aptitude.addWithId(String nameOrId, String background, int backgroundRepeat, String... lockedTextures)
+Aptitude.setBackground(Aptitude aptitude, String backgroundTexture) // advanced helper
 ```
 
 ### Blank Example
 
 ```js
-var apt = Aptitude.add('my_aptitude', 'minecraft:textures/block/stone.png', 'kubejs:textures/item/example_item.png')
+var apt = Aptitude.addWithId('my_pack:smithing')
+apt.setBackgroundTexture('minecraft:textures/block/stone_bricks.png')
+apt.setLockedTextures(
+  'kubejs:textures/item/example_item.png',
+  'kubejs:textures/item/example_item.png',
+  'kubejs:textures/item/example_item.png',
+  'kubejs:textures/item/example_item.png'
+)
 apt.setLevelCap(32)
 apt.setBaseLevelCost(3)
 apt.setSkillPointInterval(4)
@@ -150,18 +180,17 @@ apt.setHidden(false)
 ### Working Example
 
 ```js
-var smithing = Aptitude.addWithId(
-  'my_pack:smithing',
-  'minecraft:textures/block/stone_bricks.png',
-  2,
+var smithing = Aptitude.addWithId('my_pack:smithing')
+
+smithing.setDisplayNameOverride('Smithing')
+smithing.setBackgroundTexture('minecraft:textures/block/stone_bricks.png')
+smithing.setLockedTextures(
   'kubejs:textures/item/example_item.png',
   'kubejs:textures/item/example_item.png',
   'kubejs:textures/item/example_item.png',
   'kubejs:textures/item/example_item.png'
 )
-
-smithing.setDisplayNameOverride('Smithing')
-smithing.setLevelCap(64)
+smithing.setLevelCap(64) 
 smithing.setBaseLevelCost(2)
 smithing.setSkillPointInterval(4)
 smithing.setLevelStaggering('1|1', '8|2', '16|3', '32|1', '48|0')
@@ -177,8 +206,12 @@ smithing.setHidden(false)
 
 | API | Method | Type | Args | Return | Behavior / Constraints |
 |---|---|---|---|---|---|
+| `Aptitude` | `add` | static | `name` | `Aptitude` | Minimal constructor. Defaults: stone background + `<ns>:textures/skills/<id>.png` x4 locked textures. |
+| `Aptitude` | `addWithId` | static | `nameOrId` | `Aptitude` | Minimal namespaced constructor, same defaults as above. |
 | `Aptitude` | `add` | static | `name, background, lockedTextures...` | `Aptitude` | `name` uses default mod namespace. At least one locked texture required. |
-| `Aptitude` | `addWithId` | static | `nameOrId/id, background, [backgroundRepeat], lockedTextures...` | `Aptitude` | Use this for namespaced ids. |
+| `Aptitude` | `addWithId` | static | `nameOrId, background, [backgroundRepeat], lockedTextures...` | `Aptitude` | Use this for namespaced ids. |
+| `Aptitude` | `setBackgroundTexture` | setter | `texture` | `void` | Addon instance alias. Sets background from `String` with `ResourceLocation` validation. |
+| `Aptitude` | `setBackground` | static | `aptitude, texture` | `void` | Legacy/advanced helper. Prefer `aptitude.setBackgroundTexture(...)` for normal scripts. |
 | `Aptitude` | `getByName` | static | `nameOrId` | `Aptitude or null` | Lookup from pending + registry. |
 | `Aptitude` | `setLevelCap/getLevelCap` | set/get | `int` / - | `void` / `int` | Per-aptitude cap. Getter falls back to config cap when unset. |
 | `Aptitude` | `setBaseLevelCost/getBaseLevelCost` | set/get | `int` / - | `void` / `int` | Base level cost; getter falls back to config default when unset. |
@@ -189,6 +222,7 @@ smithing.setHidden(false)
 | `Aptitude` | `setDisplayNameOverride/getDisplayNameOverride` | set/get | `String` / - | `void` / `String` | Optional display override. |
 | `Aptitude` | `getDisplayNameOrFallback` | getter | - | `String` | Localized or generated fallback. |
 | `Aptitude` | `getAbbreviationOrFallback` | getter | - | `String` | Localized `.abbreviation` or fallback. |
+| `Aptitude` | `setBackground` | setter | `ResourceLocation` | `void` | Native aptitude setter. For strings use `setBackgroundTexture(...)` (recommended) or static helper. |
 | `Aptitude` | `setBackgroundRepeat/getBackgroundRepeat` | set/get | `int` / - | `void` / `int` | Clamp `0..64`. |
 | `Aptitude` | `setRankIcon/removeRankIcon` | setter | `rank, texture` / `rank` | `void` | Rank range `0..8`. |
 | `Aptitude` | `setLockedTextures` | setter | `textures...` | `void` | No-op when empty input. |
@@ -196,6 +230,7 @@ smithing.setHidden(false)
 | `Aptitude` | `getLevelUpExperienceLevels` | method | `aptitudeLevel` | `int` | XP levels required for next upgrade. |
 | `Aptitude` | `getLevelUpPointCost` | method | `aptitudeLevel` | `int` | XP points required for next upgrade. |
 | `Aptitude` | `getSkills/getPassives` | method | `aptitude` | `List` | Advanced helper methods. |
+| `Aptitude` | `setGlobalLevelWeight/getGlobalLevelWeight` | set/get | `int` / - | `void` / `int` | Weight for this aptitude in the weighted global level formula. Clamp min `1`. Default `1`. |
 
 ### Localization & Resource Location References
 
@@ -213,12 +248,28 @@ PSA:
 
 - `Aptitude.add` uses default namespace (`justlevelingfork`).
 - Use `addWithId` for external namespace ownership.
+- Minimal constructors are recommended for addon scripts.
+- Prefer instance setters (`aptitude.setBackgroundTexture(...)`) over static helpers.
+- Long signatures and static helper are still supported for legacy scripts.
 
 ## Custom Skills
 
 ### Syntax
 
 ```js
+AbilityCreator.createAbility(String name) // returns SkillDraft
+AbilityCreator.createNewAbility(String id) // returns SkillDraft
+
+SkillDraft.setAptitude(String aptitudeName)
+SkillDraft.setRequiredLevel(int level)
+SkillDraft.setTexture(String texture)
+SkillDraft.setValues(Value... values)
+SkillDraft.addValue(Value value)
+SkillDraft.setPointCost(int spCost)
+SkillDraft.setSpCost(int spCost)
+SkillDraft.register()
+
+// Legacy constructors
 Skill.add(String skillName, String aptitudeName, int levelRequirement, String texture, Value... values)
 Skill.addWithId(String skillNameOrId, String aptitudeName, int levelRequirement, String texture, Value... values)
 Skill.addWithId(ResourceLocation id, String aptitudeName, int levelRequirement, String texture, Value... values)
@@ -226,37 +277,56 @@ Skill.addWithId(ResourceLocation id, String aptitudeName, int levelRequirement, 
 new Value(ValueType type, Object value)
 ```
 
+### Legacy Signatures
+
+```js
+AbilityCreator.createAbility(String name, String aptitudeName, int requiredLevel, String texture, Value... values)
+AbilityCreator.createAbility(String name, String aptitudeName, int requiredLevel, String texture, int spCost, Value... values)
+AbilityCreator.createNewAbility(String id, String aptitudeName, int requiredLevel, String texture, Value... values)
+AbilityCreator.createNewAbility(String id, String aptitudeName, int requiredLevel, String texture, int spCost, Value... values)
+Skill.add(String skillName, String aptitudeName, int levelRequirement, String texture, Value... values)
+Skill.addWithId(String skillNameOrId, String aptitudeName, int levelRequirement, String texture, Value... values)
+Skill.addWithId(ResourceLocation id, String aptitudeName, int levelRequirement, String texture, Value... values)
+```
+
 ### Blank Example
 
 ```js
-var skill = Skill.add(
-  'my_skill',
-  'my_aptitude',
-  3,
-  'my_pack:textures/skill/my_skill.png',
-  new Value(ValueType.PERCENT, 12.0)
-)
-skill.setPointCost(2)
+var skill = AbilityCreator.createNewAbility('my_pack:smithing_focus')
+  .setAptitude('my_pack:smithing')
+  .setRequiredLevel(3)
+  .addValue(new Value(ValueType.PERCENT, 12.0))
+  .setPointCost(2)
+  .register()
 ```
 
 ### Working Example
 
 ```js
-var focus = Skill.addWithId(
-  'my_pack:smithing_focus',
-  'my_pack:smithing',
-  4,
-  'textures/skill/building/convergence.png',
-  new Value(ValueType.MODIFIER, 1.25),
-  new Value(ValueType.PERCENT, 8.0)
-)
-focus.setPointCost(3)
+var focus = AbilityCreator.createNewAbility('my_pack:smithing_focus')
+  .setAptitude('my_pack:smithing')
+  .setRequiredLevel(4)
+  .setTexture('textures/skill/building/convergence.png')
+  .setValues(
+    new Value(ValueType.MODIFIER, 1.25),
+    new Value(ValueType.PERCENT, 8.0)
+  )
+  .setSpCost(3)
+  .register()
 ```
 
 ### Methods / Setters / Getters
 
 | API | Method | Type | Args | Return | Behavior / Constraints |
 |---|---|---|---|---|---|
+| `AbilityCreator` | `createAbility` | static | `name` | `SkillDraft` | Minimal constructor in default namespace. |
+| `AbilityCreator` | `createNewAbility` | static | `id` | `SkillDraft` | Minimal constructor in explicit namespace. |
+| `SkillDraft` | `setAptitude` | chain | `aptitudeName` | `SkillDraft` | Required before `register()`. |
+| `SkillDraft` | `setRequiredLevel` | chain | `int` | `SkillDraft` | Default is `1`. |
+| `SkillDraft` | `setTexture` | chain | `texture` | `SkillDraft` | Default is `<ns>:textures/skills/<id>.png`. |
+| `SkillDraft` | `setValues/addValue` | chain | `Value... / Value` | `SkillDraft` | Skill values payload. |
+| `SkillDraft` | `setPointCost/setSpCost` | chain | `int` | `SkillDraft` | Optional SP cost. |
+| `SkillDraft` | `register` | terminal | - | `Skill` | Validates aptitude and registers with existing `Skill.addWithId`. |
 | `Skill` | `add` | static | `name, aptitude, requiredLevel, texture, values...` | `Skill` | Default namespace helper. |
 | `Skill` | `addWithId` | static | `nameOrId/id, aptitude, requiredLevel, texture, values...` | `Skill` | Namespaced helper. |
 | `Skill` | `getLvl` | getter | - | `int` | Aptitude requirement to unlock/toggle. |
@@ -284,10 +354,43 @@ PSA:
 
 - `requiredLevel <= 0` makes normal enable flow fail requirement checks.
 - SP is spent on unlock, not on each toggle flip.
+- Draft API is recommended for new scripts.
+- Direct `Skill.add*` constructors remain available for legacy compatibility.
 
 ## Custom Passives
 
 ### Syntax
+
+```js
+PassiveCreator.createPassive(String name) // returns PassiveDraft
+PassiveCreator.createNewPassive(String id) // returns PassiveDraft
+
+PassiveDraft.setAptitude(String aptitudeName)
+PassiveDraft.setTexture(String texture)
+PassiveDraft.setAttributeId(String attributeId)
+PassiveDraft.setAttributeUUID(String uuid)
+PassiveDraft.setAttributeUuid(String uuid) // alias
+PassiveDraft.setAttributeValue(Object value)
+PassiveDraft.setLevelsRequired(int... levelsRequired)
+PassiveDraft.setPointCost(int spCost)
+PassiveDraft.setSpCost(int spCost)
+PassiveDraft.register()
+
+// Legacy constructors
+Passive.add(String passiveName, String aptitudeName, String texture, Attribute attribute, String attributeUUID, Object attributeValue, int... levelsRequired)
+Passive.addWithId(String passiveNameOrId, String aptitudeName, String texture, Attribute attribute, String attributeUUID, Object attributeValue, int... levelsRequired)
+Passive.addWithId(ResourceLocation id, String aptitudeName, String texture, Attribute attribute, String attributeUUID, Object attributeValue, int... levelsRequired)
+Passive.add(String passiveName, String aptitudeName, String texture, String attributeId, String attributeUUID, Object attributeValue, int... levelsRequired)
+Passive.addByAttributeId(String passiveName, String aptitudeName, String texture, String attributeId, String attributeUUID, Object attributeValue, int... levelsRequired)
+
+// Addon helper (recommended): no UUID required
+PassiveCreator.createPassive(String name, String aptitudeName, String texture, String attributeId, Object attributeValue, int... levelsRequired)
+PassiveCreator.createNewPassive(String id, String aptitudeName, String texture, String attributeId, Object attributeValue, int... levelsRequired)
+PassiveCreator.createPassiveWithCost(String name, String aptitudeName, String texture, String attributeId, Object attributeValue, int spCost, int... levelsRequired)
+PassiveCreator.createNewPassiveWithCost(String id, String aptitudeName, String texture, String attributeId, Object attributeValue, int spCost, int... levelsRequired)
+```
+
+### Legacy Signatures
 
 ```js
 Passive.add(String passiveName, String aptitudeName, String texture, Attribute attribute, String attributeUUID, Object attributeValue, int... levelsRequired)
@@ -295,42 +398,60 @@ Passive.addWithId(String passiveNameOrId, String aptitudeName, String texture, A
 Passive.addWithId(ResourceLocation id, String aptitudeName, String texture, Attribute attribute, String attributeUUID, Object attributeValue, int... levelsRequired)
 Passive.add(String passiveName, String aptitudeName, String texture, String attributeId, String attributeUUID, Object attributeValue, int... levelsRequired)
 Passive.addByAttributeId(String passiveName, String aptitudeName, String texture, String attributeId, String attributeUUID, Object attributeValue, int... levelsRequired)
+PassiveCreator.createPassive(String name, String aptitudeName, String texture, String attributeId, Object attributeValue, int... levelsRequired)
+PassiveCreator.createNewPassive(String id, String aptitudeName, String texture, String attributeId, Object attributeValue, int... levelsRequired)
+PassiveCreator.createPassiveWithCost(String name, String aptitudeName, String texture, String attributeId, Object attributeValue, int spCost, int... levelsRequired)
+PassiveCreator.createNewPassiveWithCost(String id, String aptitudeName, String texture, String attributeId, Object attributeValue, int spCost, int... levelsRequired)
 ```
 
 ### Blank Example
 
 ```js
-var passive = Passive.addByAttributeId(
-  'my_passive',
-  'my_aptitude',
-  'my_pack:textures/passive/my_passive.png',
-  'minecraft:generic.luck',
-  '11111111-2222-3333-4444-555555555555',
-  2.0,
-  5, 10, 15, 20
-)
-passive.setPointCost(2)
+var passive = PassiveCreator.createNewPassive('my_pack:smithing_luck')
+  .setAptitude('my_pack:smithing')
+  .setAttributeId('minecraft:generic.luck')
+  .setAttributeValue(2.0)
+  .setLevelsRequired(5, 10, 15, 20)
+  .setPointCost(2)
+  .register()
 ```
 
 ### Working Example
 
 ```js
-var speedPassive = Passive.addWithId(
-  'my_pack:throwing_speed',
-  'my_pack:smithing',
-  'textures/skill/dexterity/passive_movement_speed.png',
-  'minecraft:generic.movement_speed',
-  'd98c84f0-cce4-42f5-a40f-35eb4e89c00a',
-  0.12,
-  3, 6, 9, 12
-)
-speedPassive.setPointCost(3)
+var speedPassive = PassiveCreator.createNewPassive('my_pack:throwing_speed')
+  .setAptitude('my_pack:smithing')
+  .setTexture('textures/skill/dexterity/passive_movement_speed.png')
+  .setAttributeId('minecraft:generic.movement_speed')
+  .setAttributeValue(0.12)
+  .setLevelsRequired(3, 6, 9, 12)
+  .setSpCost(3)
+  .register()
+
+var regenPassive = PassiveCreator.createNewPassive('my_pack:regen_aura')
+  .setAptitude('my_pack:smithing')
+  .setTexture('my_pack:textures/passive/regen_aura.png')
+  .setAttributeId('minecraft:generic.max_health')
+  .setAttributeValue(2.0)
+  .setLevelsRequired(4, 8, 12)
+  .setPointCost(2)
+  .register()
 ```
 
 ### Methods / Setters / Getters
 
 | API | Method | Type | Args | Return | Behavior / Constraints |
 |---|---|---|---|---|---|
+| `PassiveCreator` | `createPassive` | static | `name` | `PassiveDraft` | Minimal constructor in default namespace. |
+| `PassiveCreator` | `createNewPassive` | static | `id` | `PassiveDraft` | Minimal constructor in explicit namespace. |
+| `PassiveDraft` | `setAptitude` | chain | `aptitudeName` | `PassiveDraft` | Required before `register()`. |
+| `PassiveDraft` | `setTexture` | chain | `texture` | `PassiveDraft` | Default is `<ns>:textures/skills/<id>.png`. |
+| `PassiveDraft` | `setAttributeId` | chain | `attributeId` | `PassiveDraft` | Required before `register()`. |
+| `PassiveDraft` | `setAttributeUUID/setAttributeUuid` | chain | `uuid` | `PassiveDraft` | Optional; if omitted, deterministic UUID is generated. |
+| `PassiveDraft` | `setAttributeValue` | chain | `Object` | `PassiveDraft` | Required before `register()`. |
+| `PassiveDraft` | `setLevelsRequired` | chain | `int...` | `PassiveDraft` | Required, must contain at least one value. |
+| `PassiveDraft` | `setPointCost/setSpCost` | chain | `int` | `PassiveDraft` | Optional SP cost. |
+| `PassiveDraft` | `register` | terminal | - | `Passive` | Validates required fields and registers via `PassiveCreator`. |
 | `Passive` | `add` | static | `name, aptitude, texture, attribute/object, levels...` | `Passive` | Default namespace helper. |
 | `Passive` | `addWithId` | static | `nameOrId/id, aptitude, texture, attribute/object, levels...` | `Passive` | Namespaced helper. |
 | `Passive` | `addByAttributeId` | static | `name, aptitude, texture, attributeId, uuid, value, levels...` | `Passive` | Recommended for KubeJS scripts. |
@@ -340,6 +461,8 @@ speedPassive.setPointCost(3)
 | `Passive` | `getLevel/getLevel(player)` | getter | - / `Player` | `int` | Current passive level. |
 | `Passive` | `getNextLevelUp` | method | - | `int` | Aptitude requirement for next passive level. |
 | `Passive` | `getValue` | getter | - | `double` | Total passive value at max level. |
+| `PassiveCreator` | `createPassive/createNewPassive` | static | `nameOrId, aptitude, texture, attributeId, value, levels...` | `Passive` | Legacy direct constructors. |
+| `PassiveCreator` | `createPassiveWithCost/createNewPassiveWithCost` | static | `..., spCost, levels...` | `Passive` | Legacy direct constructors + point cost. |
 
 ### Gating Behavior (important)
 
@@ -347,6 +470,8 @@ speedPassive.setPointCost(3)
 - If requirements fail, level does not increase.
 - GUI flow refunds SP when no passive level increase happened.
 - GUI passive downgrade is removed in this fork, but admin/runtime APIs can still reduce levels.
+- `PassiveCreator` can auto-generate UUID, so you do not need manual `attributeUUID` for addon scripts.
+- Draft API is recommended for new scripts.
 
 ### Localization & Resource Location References
 
@@ -367,6 +492,9 @@ Passive keys:
 Title.add(String name)
 Title.add(String name, boolean defaultUnlocked, boolean hideRequirements)
 Title.getByName(String name)
+Title.remove(String name)
+Title.restore(String name)
+Title.update(String name, boolean defaultUnlocked, boolean hideRequirements)
 
 TitleAPI.conditions(String titleName)
   .aptitude(String aptitudeName, TitleComparator comparator, int value)
@@ -376,29 +504,44 @@ TitleAPI.conditions(String titleName)
   .register()
 
 TitleAPI.clearConditions(String titleName)
+TitleAPI.remove(String titleName)
+TitleAPI.restore(String titleName)
+TitleAPI.update(String titleName, boolean defaultUnlocked, boolean hideRequirements)
+TitleAPI.setDisplayNameOverride(String titleName, String displayName)
+TitleAPI.setDescriptionOverride(String titleName, String description)
+TitleAPI.clearTextOverrides(String titleName)
+TitleAPI.exists(String titleName)
+TitleAPI.isDeleted(String titleName)
+TitleAPI.setServerManaged(String titleName, boolean value)
+TitleAPI.isServerManaged(String titleName)
+TitleAPI.setOverheadColor(String titleName, String hexRgb)
+TitleAPI.clearOverheadColor(String titleName)
+TitleAPI.getOverheadColor(String titleName)
+TitleAPI.getStateSnapshot()
 ```
 
 ### Blank Example
 
 ```js
 Title.add('my_title', false, false)
-TitleAPI.clearConditions('my_title')
-TitleAPI.conditions('my_title')
-  .aptitude('magic', TitleComparator.GREATER_OR_EQUAL, 10)
-  .register()
+TitleAPI.setDisplayNameOverride('my_title', 'My Title')
+TitleAPI.setDescriptionOverride('my_title', 'Unlocked by server script.')
 ```
 
 ### Working Example
 
 ```js
+// startup_scripts: register only
 Title.add('archmage_test', false, false)
 Title.add('shadow_agent_test', false, true)
 
-TitleAPI.clearConditions('archmage_test')
-TitleAPI.conditions('archmage_test')
-  .aptitude('magic', TitleComparator.GREATER_OR_EQUAL, 10)
-  .stat('minecraft:jump', TitleComparator.GREATER_OR_EQUAL, 250)
-  .register()
+TitleAPI.setDisplayNameOverride('archmage_test', 'Archmage')
+TitleAPI.setDescriptionOverride('archmage_test', 'Master of arcane studies.')
+
+// server_scripts: grant/revoke per player
+PlayerDataAPI.setTitleUnlocked(player, 'archmage_test', true)
+PlayerDataAPI.setPlayerTitle(player, 'archmage_test')
+PlayerDataAPI.setTitleUnlocked(player, 'archmage_test', false) // revoke
 ```
 
 ### Methods / Setters / Getters
@@ -408,9 +551,26 @@ TitleAPI.conditions('archmage_test')
 | `Title` | `add` | static | `name` | `Title` | Same as `add(name, false, false)`. |
 | `Title` | `add` | static | `name, defaultUnlocked, hideRequirements` | `Title` | Creates title in default namespace. |
 | `Title` | `getByName` | static | `name` | `Title or null` | Title lookup by normalized name. |
+| `Title` | `remove` | static | `name` | `boolean` | Logical delete (title behaves as non-existent in UI/API/commands). |
+| `Title` | `restore` | static | `name` | `boolean` | Restores a previously deleted title. |
+| `Title` | `update` | static | `name, defaultUnlocked, hideRequirements` | `boolean` | Overrides title metadata without renaming ID. |
 | `Title` | `getRequirement/getRequirement(player)` | getter | - / `Player` | `boolean` | Unlock state. |
 | `TitleAPI` | `conditions` | static | `titleName` | `ConditionBuilder` | Starts fluent builder. |
 | `TitleAPI` | `clearConditions` | static | `titleName` | `void` | Clears KubeJS conditions for that title. |
+| `TitleAPI` | `remove` | static | `titleName` | `boolean` | Logical delete for any title (including originals). |
+| `TitleAPI` | `restore` | static | `titleName` | `boolean` | Restores a deleted title. |
+| `TitleAPI` | `update` | static | `titleName, defaultUnlocked, hideRequirements` | `boolean` | Metadata override for default unlock + hide requirements. |
+| `TitleAPI` | `setDisplayNameOverride` | static | `titleName, displayName` | `boolean` | Runtime text override (literal) without lang key. |
+| `TitleAPI` | `setDescriptionOverride` | static | `titleName, description` | `boolean` | Runtime description override (literal) without lang key. |
+| `TitleAPI` | `clearTextOverrides` | static | `titleName` | `boolean` | Clears runtime text overrides for that title. |
+| `TitleAPI` | `exists` | static | `titleName` | `boolean` | False for deleted or unknown titles. |
+| `TitleAPI` | `isDeleted` | static | `titleName` | `boolean` | True if title is logically deleted. |
+| `TitleAPI` | `setServerManaged` | static | `titleName, value` | `boolean` | Enables/disables server-managed policy for that title. |
+| `TitleAPI` | `isServerManaged` | static | `titleName` | `boolean` | True when title ignores auto condition/default unlock flow. |
+| `TitleAPI` | `setOverheadColor` | static | `titleName, hexRgb` | `boolean` | Sets head-title RGB color (`#RRGGBB` or `RRGGBB`). Server-authoritative sync. |
+| `TitleAPI` | `clearOverheadColor` | static | `titleName` | `boolean` | Removes custom head-title color override. |
+| `TitleAPI` | `getOverheadColor` | static | `titleName` | `String` | Returns `#RRGGBB` or empty string when no override. |
+| `TitleAPI` | `getStateSnapshot` | static | - | `Map` | Debug snapshot (`deletedTitles`, `metaOverrides`, `textOverrides`, `overheadColorOverrides`, `serverManagedTitles`, `conditions`). |
 | `ConditionBuilder` | `aptitude` | chain | `aptitude, comparator, value` | `ConditionBuilder` | Adds aptitude condition. |
 | `ConditionBuilder` | `stat` | chain | `statId, comparator, value` | `ConditionBuilder` | Adds custom stat condition. |
 | `ConditionBuilder` | `entityKilled` | chain | `entityId, comparator, value` | `ConditionBuilder` | Adds entity killed condition. |
@@ -422,6 +582,48 @@ PSA:
 
 - Conditions are internally stored as `type/variable/comparator/value` strings.
 - Title conditions are evaluated server-side continuously by title sync logic.
+- Server-managed titles do not auto-unlock from conditions or title requirement checks.
+- Deleted titles are hidden from title UI, title commands and title APIs.
+- If an active title is deleted, player title falls back to `titleless`.
+- UI alias: `titleless` is shown as `(none)` in title list/current-title button (visual only; logic remains `titleless`).
+- `titleless` still does not render a head-title tag above players, even if a color override exists.
+
+### Addon Common Config (server policy)
+
+File:
+
+- `config/justlevellingaddonjs-common.toml`
+
+Keys:
+
+- `disableBaseModTitles` (default `false`)
+  - When `true`, titles loaded from base JLFork title config are disabled globally (except `titleless`).
+- `kubejsTitlesServerManagedByDefault` (default `true`)
+  - When `true`, every `Title.add(...)` from KubeJS is marked server-managed automatically.
+
+### Quick Test Scripts (run/kubejs)
+
+- `run/kubejs/server_scripts/jlfork_titles_crud_test_server.js`
+  - Ejecuta pruebas CRUD no destructivas al entrar al mundo.
+  - Expone helpers en `global.JLTitleCrud`:
+    - `listTitles()`
+    - `state()`
+    - `deletedTitles()`
+    - `removeAllTitles(includeTitleless)`
+    - `restoreAllTitles()`
+    - `keepOnlyTitles(titleNames, keepTitleless)`
+    - `updateTitle(name, defaultUnlocked, hideRequirements)`
+    - `removeTitle(name)`
+    - `restoreTitle(name)`
+
+- `run/kubejs/server_scripts/jlfork_titles_crud_actions_example.js`
+  - Script de acciones por modo (apagado por defecto).
+  - Cambia `MODE`:
+    - `"none"`: no aplica cambios.
+    - `"remove_all"`: elimina logicamente todos los titulos.
+    - `"restore_all"`: restaura todos los borrados.
+    - `"keep_only"`: elimina todos excepto `TITLES_TO_KEEP`.
+    - `"modify_sample"`: aplica overrides de ejemplo (`SAMPLE_UPDATES`).
 
 ## Requirement Tweaker (modern)
 
@@ -870,10 +1072,17 @@ PlayerEvents.loggedIn(event => {
 | `getAptitudeLevel` | `player, aptitudeName` | `int` | `0` on invalid player/cap/name. | None. |
 | `setAptitudeLevel` | `player, aptitudeName, level` | `void` | Clamp to `1..aptitudeCap`; upward changes respect `LevelLockAPI`. | Sync capability packet when changed. |
 | `addAptitudeLevel` | `player, aptitudeName, levels` | `void` | No-op if `levels==0`; positive deltas respect `LevelLockAPI`. | Sync capability packet when changed. |
-| `getGlobalLevel` | `player` | `int` | `0` if invalid. | None. |
+| `getGlobalLevel` | `player` | `int` | Weighted average: `floor(Σ(level_i × weight_i) / Σ(weight_i))`. Deleted aptitudes excluded. `0` if invalid. | None. |
 | `getAptitudePoints` | `player, aptitudeName` | `int` | `0` on invalid input. | None. |
 | `getAptitudePointsSpent` | `player, aptitudeName` | `int` | `0` on invalid input. | None. |
 | `respecAptitude` | `player, aptitudeName` | `boolean` | `false` on invalid input. | Resets passive/skill state for that aptitude + sync + skill/passive change hooks. |
+
+PSA about `getGlobalLevel`:
+
+- Returns a **weighted average** of all non-deleted aptitude levels: `floor(Σ(level_i × weight_i) / Σ(weight_i))`.
+- Default weight for every aptitude is `1` (equal weighting = arithmetic mean).
+- Assign weights with `aptitude.setGlobalLevelWeight(int)` in startup scripts.
+- The result range is `0..maxAptitudeLevel`, not a sum. Adjust `playersMaxGlobalLevel` in the base mod config accordingly.
 
 ### Methods / Setters / Getters (Skills)
 
@@ -901,11 +1110,17 @@ PlayerEvents.loggedIn(event => {
 | `getPlayerTitle` | `player` | `String` | Empty string on invalid input. | None. |
 | `setPlayerTitle` | `player, titleName` | `boolean` | Strict: fails if title is not unlocked. | Updates displayed name + sync on success. |
 | `clearPlayerTitle` | `player` | `void` | No-op if already `titleless` or invalid. | Updates displayed name + sync when changed. |
+| `blockTitle` | `player, titleName` | `boolean` | Per-player hard block. Rejects `titleless`. | Locks the title, prevents auto-unlock, clears active title if it was selected, syncs. |
+| `unblockTitle` | `player, titleName` | `boolean` | Removes per-player block entry. | Keeps title locked until requirements/API unlock it again, syncs when changed. |
+| `isTitleBlocked` | `player, titleName` | `boolean` | `false` on invalid input. | None. |
+| `getBlockedTitles` | `player` | `List<String>` | Empty list on invalid input/no blocks. | None. |
+| `clearBlockedTitles` | `player` | `void` | No-op if empty/invalid. | Removes all per-player blocks and syncs. |
 
 PSA:
 
 - These methods are admin/runtime controls. They can bypass or differ from normal GUI flow.
 - Passive GUI downgrade is removed, but `setPassiveLevel` can still reduce levels.
+- `blockTitle` is per-player (not global). For global removal use `TitleAPI.remove(...)`.
 
 ## Events
 
@@ -986,16 +1201,15 @@ if (!global.__jlfork_pack_setup_done) {
       return m
     }
 
-    var smithing = Aptitude.addWithId(
-      'my_pack:smithing',
-      'minecraft:textures/block/stone_bricks.png',
-      2,
+    var smithing = Aptitude.addWithId('my_pack:smithing')
+    smithing.setDisplayNameOverride('Smithing')
+    smithing.setBackgroundTexture('minecraft:textures/block/stone_bricks.png')
+    smithing.setLockedTextures(
       'kubejs:textures/item/example_item.png',
       'kubejs:textures/item/example_item.png',
       'kubejs:textures/item/example_item.png',
       'kubejs:textures/item/example_item.png'
     )
-    smithing.setDisplayNameOverride('Smithing')
     smithing.setLevelCap(64)
     smithing.setBaseLevelCost(2)
     smithing.setSkillPointInterval(4)
@@ -1005,25 +1219,22 @@ if (!global.__jlfork_pack_setup_done) {
     smithing.setEnabled(true)
     smithing.setHidden(false)
 
-    var focus = Skill.addWithId(
-      'my_pack:smithing_focus',
-      'my_pack:smithing',
-      4,
-      'textures/skill/building/convergence.png',
-      new Value(ValueType.MODIFIER, 1.25)
-    )
-    focus.setPointCost(2)
+    var focus = AbilityCreator.createNewAbility('my_pack:smithing_focus')
+      .setAptitude('my_pack:smithing')
+      .setRequiredLevel(4)
+      .setTexture('textures/skill/building/convergence.png')
+      .addValue(new Value(ValueType.MODIFIER, 1.25))
+      .setPointCost(2)
+      .register()
 
-    var passive = Passive.addByAttributeId(
-      'smithing_luck',
-      'my_pack:smithing',
-      'textures/skill/luck/passive_luck.png',
-      'minecraft:generic.luck',
-      '8b67a08f-9f1e-4f77-b5f1-6c2dc5b1d001',
-      2.0,
-      4, 8, 12, 16
-    )
-    passive.setPointCost(2)
+    var passive = PassiveCreator.createNewPassive('my_pack:smithing_luck')
+      .setAptitude('my_pack:smithing')
+      .setTexture('textures/skill/luck/passive_luck.png')
+      .setAttributeId('minecraft:generic.luck')
+      .setAttributeValue(2.0)
+      .setLevelsRequired(4, 8, 12, 16)
+      .setPointCost(2)
+      .register()
 
     Title.add('smithing_master', false, false)
     TitleAPI.clearConditions('smithing_master')
@@ -1097,6 +1308,12 @@ PlayerEvents.loggedIn(event => {
 - Use `addWithId(...)` or `createNew*` wrappers for custom namespace.
 - Always normalize to lower-case in scripts to avoid lookup mismatch.
 
+### Java overloads in KubeJS
+
+- Avoid calling overloaded Java methods directly via `Java.loadClass(...)` when multiple signatures share the same name.
+- Prefer addon bindings (`Aptitude`, `AbilityCreator`, `PassiveCreator`, `PlayerDataAPI`, etc.) because they expose stable script-friendly signatures.
+- If you must call Java directly, cast/shape parameters explicitly to match one signature.
+
 ### Java map vs JS object
 
 - For `Map<?, ?>` overloads, Java `HashMap` is the safest option.
@@ -1107,6 +1324,12 @@ PlayerEvents.loggedIn(event => {
 - Registry changes belong in `startup_scripts`.
 - `/kubejs reload_startup_scripts` is not always enough for deep registry changes.
 - Best practice for stable tests: restart after startup registry edits.
+
+### Global clear methods
+
+- `SkillChangeAPI.clearLevelUpCommands()` clears all aptitude level-up commands.
+- `SkillChangeAPI.clearAllStateCommands()` clears all skill/passive state hooks.
+- In multi-script packs, call clear methods only once in a controlled bootstrap script to avoid deleting commands registered by another file.
 
 ### Invalid resource locations
 
@@ -1155,6 +1378,7 @@ PlayerEvents.loggedIn(event => {
 ### Title conditions not applying
 
 - Ensure `Title.add` was called for that title id.
+- Check `TitleAPI.isServerManaged(titleId)`: if `true`, conditions are intentionally ignored.
 - Ensure `TitleAPI.conditions(...).register()` was executed in startup.
 - Verify condition variable names (`aptitude`, stat id, entity id) are valid.
 

@@ -37,6 +37,29 @@ Dependencias requeridas:
 Dependencia adicional si usas BetterCombat:
 - [PlayerAnimator](https://modrinth.com/mod/playeranimator)
 
+## Compat matrix
+- `Just Levelling Addon JS 1.1.0` soporta `JustLevelingFork 1.2.1` (compatibilidad binaria exacta).
+- Si la version base no coincide, el addon corta carga con error claro de incompatibilidad.
+
+## Flujo Addon-Only (oficial)
+- Este repo publica oficialmente solo el addon: `justlevellingaddonjs-*.jar`.
+- `src/main` queda como base de referencia/upstream; la logica custom vive en `src/addon`.
+- Comandos oficiales:
+  - `./gradlew buildAddonOnly`
+  - `./gradlew runAddonClient`
+  - `./gradlew runAddonServer`
+- Nota: si el jar base release no es compatible con entorno `userdev`, los `runAddon*` de Gradle pueden fallar por mixins del mod base aunque el addon jar funcione en CurseForge/runtime real.
+- Si el jar base no esta en la ruta por defecto, usa:
+  - `./gradlew buildAddonOnly -Pbase121JarPath="C:/ruta/justlevelingfork-1.2.1.jar"`
+- Documento de ownership y mapa tecnico:
+  - [docs/addon-ownership.md](docs/addon-ownership.md)
+
+## Checklist rapido de instalacion (addon)
+1. Elimina jars viejos del addon (`justlevellingaddonjs-*.jar`) en `mods/`.
+2. Deja solo una copia del addon (version actual recomendada).
+3. Mantén `justlevelingfork` base exactamente en `1.2.1`.
+4. Inicia y confirma en `latest.log` que carga `justlevellingaddonjs-1.1.0.jar`.
+
 ## Enlaces
 - [CurseForge](https://www.curseforge.com/minecraft/mc-mods/justleveling-fork)
 - [Modrinth](https://modrinth.com/mod/justleveling-fork)

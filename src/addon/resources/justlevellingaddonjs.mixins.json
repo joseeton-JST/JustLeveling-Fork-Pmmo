@@ -10,10 +10,12 @@
     "MixRegistrySkillsBackport",
     "MixRegistryPassivesBackport",
     "MixRegistryTitlesBackport",
+    "MixRegistryTitlesCrudControls",
     "MixAptitudeBackportApi",
     "MixSkillBackportApi",
     "MixPassiveBackportApi",
     "MixTitleBackportApi",
+    "MixTitleRuntimeGuards",
     "MixAptitudeCapabilityParity",
     "MixAptitudeBackgroundStringAlias",
     "MixKubeJSPluginBindings",
@@ -22,19 +24,24 @@
     "MixPassiveLevelUpSP",
     "MixPassiveLevelDownSP",
     "MixAptitudeLevelCommand",
+    "MixAptitudeArgumentDeletedGuard",
+    "MixTitleArgumentDeletedGuard",
+    "MixTitleCommandDeletedGuard",
     "MixRegistryCommonEvents",
     "MixL2TabsIntegrationLegendaryCompat"
   ],
   "client": [
     "MixDrawTabsOffset",
     "MixLegendaryTabsAddTabMirror",
+    "MixTitleOverlayCPDedup",
     "MixSkillTooltip",
     "MixPassiveTooltip",
     "MixJLScreenVisibilityGuard",
     "MixJLScreenAptitudeCompat",
     "MixJLScreenAptitudeNameFallback",
     "MixJLScreenOptionalControls",
-    "MixJLScreenTitlesFilter"
+    "MixJLScreenTitlesFilter",
+    "MixPlayerRendererTitleColor"
   ],
   "injectors": {
     "defaultRequire": 1

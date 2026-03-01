@@ -278,6 +278,66 @@ public final class AptitudeCompat {
         invokeVoidMethod(aptitude, "setDisplayNameOverride", String.class, displayName);
     }
 
+    public static String getAbbreviationOrFallback(Aptitude aptitude) {
+        if (aptitude == null) {
+            return "???";
+        }
+
+        String byMethod = invokeStringMethod(aptitude, "getAbbreviationOrFallback");
+        if (byMethod != null && !byMethod.isBlank()) {
+            return byMethod;
+        }
+
+        String displayName = getDisplayNameOrFallback(aptitude);
+        if (displayName.isBlank()) {
+            return "???";
+        }
+
+        String[] parts = displayName.split("[^a-zA-Z0-9]+");
+        StringBuilder abbreviation = new StringBuilder();
+        for (String part : parts) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            abbreviation.append(Character.toUpperCase(part.charAt(0)));
+            if (abbreviation.length() >= 3) {
+                break;
+            }
+        }
+
+        if (abbreviation.isEmpty()) {
+            String clean = displayName.replaceAll("[^a-zA-Z0-9]", "");
+            if (clean.isEmpty()) {
+                return "???";
+            }
+            return clean.substring(0, Math.min(3, clean.length())).toUpperCase(Locale.ROOT);
+        }
+
+        return abbreviation.toString();
+    }
+
+    public static String getAbbreviationOverride(Aptitude aptitude) {
+        if (aptitude == null) {
+            return null;
+        }
+        String value = invokeStringMethod(aptitude, "getAbbreviationOverride");
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    public static void setAbbreviationOverride(Aptitude aptitude, String abbreviation) {
+        if (aptitude == null) {
+            return;
+        }
+        invokeVoidMethod(aptitude, "setAbbreviationOverride", String.class, abbreviation);
+    }
+
+    public static void clearAbbreviationOverride(Aptitude aptitude) {
+        if (aptitude == null) {
+            return;
+        }
+        invokeMethodVoid(aptitude, "clearAbbreviationOverride", new Class[0], new Object[0]);
+    }
+
     public static void setLevelStaggering(Aptitude aptitude, String... levelStaggering) {
         if (aptitude == null) {
             return;
